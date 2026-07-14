@@ -33,16 +33,31 @@
     </section>
 
     <section class="throw-zone">
-      <div id="littleMan" class="little-man" role="button" aria-label="Drag and throw the cube">
+      <div id="littleMan" class="little-man cupid" role="button" aria-label="Drag and throw Cupid">
         <div class="speech-bubble">Throw me!</div>
-        <div class="cube-face">
-          <span class="cube-eye cube-eye-left"></span>
-          <span class="cube-eye cube-eye-right"></span>
-          <span class="cube-mouth"></span>
-          <span class="cube-shine"></span>
+        <div class="cupid-halo"></div>
+        <div class="cupid-wing cupid-wing-left"></div>
+        <div class="cupid-wing cupid-wing-right"></div>
+        <div class="cupid-head">
+          <span class="cupid-curl curl-one"></span>
+          <span class="cupid-curl curl-two"></span>
+          <span class="cupid-curl curl-three"></span>
+          <span class="cupid-eye cupid-eye-left"></span>
+          <span class="cupid-eye cupid-eye-right"></span>
+          <span class="cupid-cheek cupid-cheek-left"></span>
+          <span class="cupid-cheek cupid-cheek-right"></span>
+          <span class="cupid-mouth"></span>
         </div>
+        <div class="cupid-body">
+          <span class="toga-fold"></span>
+          <span class="cupid-arm cupid-arm-left"></span>
+          <span class="cupid-arm cupid-arm-right"></span>
+          <span class="cupid-leg cupid-leg-left"></span>
+          <span class="cupid-leg cupid-leg-right"></span>
+        </div>
+        <div class="cupid-bow">⌒</div>
       </div>
-      <p class="drag-help">Drag the cube and launch it at the wheel.</p>
+      <p class="drag-help">Drag Cupid and launch him at the wheel.</p>
     </section>
 
     <section id="ticket" class="ticket hidden" aria-live="polite">
@@ -68,13 +83,42 @@
       <p id="lastPrizeText"></p>
     </section>
 
-    <section id="adminPanel" class="admin-panel hidden">
-      <h2>Testing mode</h2>
-      <p>Unlimited chaos unlocked.</p>
+    <section id="adminPanel" class="admin-panel hidden" aria-label="Admin controls">
+      <button id="closeAdmin" class="admin-close" aria-label="Close admin panel">×</button>
+      <p class="admin-kicker">Secret controls</p>
+      <h2>Cupid Control Room</h2>
+      <p id="adminStatus">Testing tools unlocked.</p>
+
+      <div class="admin-grid">
+        <label class="admin-toggle">
+          <span>Unlimited test spins</span>
+          <input id="unlimitedToggle" type="checkbox">
+        </label>
+        <label class="admin-toggle">
+          <span>Monthly lock enabled</span>
+          <input id="monthlyLockToggle" type="checkbox">
+        </label>
+      </div>
+
+      <label class="admin-label" for="forcePrizeSelect">Force next prize</label>
+      <select id="forcePrizeSelect" class="admin-select">
+        <option value="">Random prize</option>
+      </select>
+
       <div class="admin-buttons">
-        <button id="testSpin" class="secondary-btn">Test spin</button>
+        <button id="testSpin" class="secondary-btn">Spin now</button>
         <button id="resetSpin" class="secondary-btn">Reset monthly spin</button>
-        <button id="forceAvailable" class="secondary-btn">Force spin available</button>
+        <button id="previewTicket" class="secondary-btn">Preview ticket</button>
+        <button id="viewHistory" class="secondary-btn">Ticket history</button>
+        <button id="resetAll" class="danger-btn">Reset all app data</button>
+      </div>
+
+      <div id="historyPanel" class="history-panel hidden">
+        <div class="history-heading">
+          <h3>Ticket history</h3>
+          <button id="clearHistory" class="text-btn">Clear history</button>
+        </div>
+        <div id="historyList" class="history-list"></div>
       </div>
     </section>
 

@@ -58,7 +58,9 @@ const confetti = document.getElementById('confetti');
 
 let rotation = 0;
 let spinning = false;
-let testMode = true; // Temporary testing build: unlimited spins enabled
+let testMode = Boolean(loadState().adminSettings?.unlimited);
+let monthlyLockEnabled = loadState().adminSettings?.monthlyLock ?? false;
+let forcedPrizeIndex = null
 let titleTapCount = 0;
 let drag = null;
 let currentPrize = null;
@@ -83,7 +85,7 @@ function nextMonthText() {
 }
 
 function hasSpunThisMonth() {
-  return loadState().lastSpinMonth === monthKey();
+  return monthlyLockEnabled && loadState().lastSpinMonth === monthKey();
 }
 
 function drawWheel() {
@@ -175,7 +177,8 @@ function spinWheel(force = false) {
   statusText.textContent = 'Spinning. Romance bureaucracy in progress.';
   vibrate(20);
 
-  const winningIndex = Math.floor(Math.random() * prizes.length);
+  const winningIndex = Number.isInteger(forcedPrizeIndex) ? forcedPrizeIndex : Math.floor(Math.random() * prizes.length);
+  forcedPrizeIndex = null;
   const slice = (Math.PI * 2) / prizes.length;
   const pointerAngle = -Math.PI / 2;
   const targetAngle = pointerAngle - (winningIndex * slice + slice / 2);
@@ -332,7 +335,7 @@ littleMan.addEventListener('pointerup', (event) => {
     littleMan.style.top = `${endY}px`;
     const hit = rectsOverlap(littleMan.getBoundingClientRect(), canvas.getBoundingClientRect());
     if (hit) {
-      statusText.textContent = 'Direct hit. The cube has fulfilled its tiny destiny.';
+      statusText.textContent = 'Direct hit. Cupid has fulfilled his tiny romantic destiny.';
       spinWheel();
     } else {
       statusText.textContent = 'Missed it. Even romance needs aim.';
@@ -363,13 +366,16 @@ closeTicket.addEventListener('click', () => {
     saveTicketPhoto.textContent = 'Download ticket photo';
     saveTicketHint.textContent = 'Downloads straight to your device as a PNG image.';
     closeTicket.textContent = 'Done';
+    const claimedTicket = {
+      prize: currentPrize,
+      claimedAt: claimedAt.toISOString(),
+      expiresAt: expiresAt.toISOString(),
+      code
+    };
+    const state = loadState();
     saveState({
-      lastClaimedTicket: {
-        prize: currentPrize,
-        claimedAt: claimedAt.toISOString(),
-        expiresAt: expiresAt.toISOString(),
-        code
-      }
+      lastClaimedTicket: claimedTicket,
+      ticketHistory: [claimedTicket, ...(state.ticketHistory || [])].slice(0, 50)
     });
     statusText.textContent = 'Ticket claimed. It expires in 31 days, so no strategic hoarding.';
     burstConfetti();
@@ -532,6 +538,64 @@ function openPasswordDialog() {
   setTimeout(() => passwordInput.focus(), 50);
 }
 
+const closeAdmin = document.getElementById('closeAdmin');
+const unlimitedToggle = document.getElementById('unlimitedToggle');
+const monthlyLockToggle = document.getElementById('monthlyLockToggle');
+const forcePrizeSelect = document.getElementById('forcePrizeSelect');
+const previewTicket = document.getElementById('previewTicket');
+const viewHistory = document.getElementById('viewHistory');
+const historyPanel = document.getElementById('historyPanel');
+const historyList = document.getElementById('historyList');
+const clearHistory = document.getElementById('clearHistory');
+const resetAll = document.getElementById('resetAll');
+const adminStatus = document.getElementById('adminStatus');
+
+function saveAdminSettings() {
+  saveState({ adminSettings: { unlimited: testMode, monthlyLock: monthlyLockEnabled } });
+}
+
+function refreshAdminControls() {
+  unlimitedToggle.checked = testMode;
+  monthlyLockToggle.checked = monthlyLockEnabled;
+  adminStatus.textContent = `${testMode ? 'Unlimited spins on' : 'Unlimited spins off'} · ${monthlyLockEnabled ? 'Monthly lock on' : 'Monthly lock off'}`;
+}
+
+function populatePrizeSelector() {
+  prizes.forEach((prize, index) => {
+    const option = document.createElement('option');
+    option.value = String(index);
+    option.textContent = prize.name;
+    forcePrizeSelect.appendChild(option);
+  });
+}
+
+function formatAdminDate(value) {
+  if (!value) return 'Unknown date';
+  return new Date(value).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function renderHistory() {
+  const history = loadState().ticketHistory || [];
+  historyList.innerHTML = '';
+  if (!history.length) {
+    historyList.innerHTML = '<p>No claimed tickets yet. Cupid has paperwork to catch up on.</p>';
+    return;
+  }
+  history.forEach(item => {
+    const row = document.createElement('div');
+    row.className = 'history-item';
+    row.innerHTML = `<strong>${item.prize?.name || 'Mystery prize'}</strong><small>Claimed ${formatAdminDate(item.claimedAt)} · Expires ${formatAdminDate(item.expiresAt)}<br>${item.code || ''}</small>`;
+    historyList.appendChild(row);
+  });
+}
+
+function openAdmin() {
+  refreshAdminControls();
+  adminPanel.classList.remove('hidden');
+  lockedCard.classList.add('hidden');
+  statusText.textContent = 'Admin mode unlocked. Cupid is now under questionable management.';
+}
+
 secretHeart.addEventListener('click', openPasswordDialog);
 titleTap.addEventListener('click', () => {
   titleTapCount += 1;
@@ -546,28 +610,85 @@ titleTap.addEventListener('click', () => {
 passwordForm.addEventListener('submit', (event) => {
   event.preventDefault();
   if (passwordInput.value === PASSWORD) {
-    testMode = true;
-    adminPanel.classList.remove('hidden');
-    lockedCard.classList.add('hidden');
-    statusText.textContent = 'Testing mode unlocked. Prize goblin is off the leash.';
     passwordDialog.close();
+    openAdmin();
   } else {
-    passwordError.textContent = 'Nope. The goblin remains protected.';
+    passwordError.textContent = 'Nope. Cupid says the password is wrong.';
     wobbleMan();
   }
 });
 
-document.getElementById('testSpin').addEventListener('click', () => spinWheel(true));
+closeAdmin.addEventListener('click', () => adminPanel.classList.add('hidden'));
+
+unlimitedToggle.addEventListener('change', () => {
+  testMode = unlimitedToggle.checked;
+  saveAdminSettings();
+  refreshAdminControls();
+  setLockedView();
+});
+
+monthlyLockToggle.addEventListener('change', () => {
+  monthlyLockEnabled = monthlyLockToggle.checked;
+  saveAdminSettings();
+  refreshAdminControls();
+  setLockedView();
+});
+
+forcePrizeSelect.addEventListener('change', () => {
+  forcedPrizeIndex = forcePrizeSelect.value === '' ? null : Number(forcePrizeSelect.value);
+  adminStatus.textContent = forcedPrizeIndex === null ? 'Next spin will be random.' : `Next spin forced to: ${prizes[forcedPrizeIndex].name}`;
+});
+
+document.getElementById('testSpin').addEventListener('click', () => {
+  adminPanel.classList.add('hidden');
+  if (forcePrizeSelect.value !== '') forcedPrizeIndex = Number(forcePrizeSelect.value);
+  spinWheel(true);
+});
+
 document.getElementById('resetSpin').addEventListener('click', () => {
+  const state = loadState();
+  delete state.lastSpinDate;
+  delete state.lastSpinMonth;
+  delete state.lastPrize;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  lockedCard.classList.add('hidden');
+  adminStatus.textContent = 'Monthly spin reset. Romance bureaucracy cleared.';
+  statusText.textContent = 'Spin reset. Cupid is ready for another launch.';
+});
+
+previewTicket.addEventListener('click', () => {
+  const index = forcePrizeSelect.value === '' ? 0 : Number(forcePrizeSelect.value);
+  adminPanel.classList.add('hidden');
+  revealPrize(index);
+});
+
+viewHistory.addEventListener('click', () => {
+  renderHistory();
+  historyPanel.classList.toggle('hidden');
+});
+
+clearHistory.addEventListener('click', () => {
+  if (!confirm('Clear all claimed ticket history?')) return;
+  saveState({ ticketHistory: [] });
+  renderHistory();
+  adminStatus.textContent = 'Ticket history cleared.';
+});
+
+resetAll.addEventListener('click', () => {
+  if (!confirm('Reset every prize, ticket and admin setting on this device?')) return;
   localStorage.removeItem(STORAGE_KEY);
-  statusText.textContent = 'Monthly spin reset. Romance has been rebooted.';
+  testMode = false;
+  monthlyLockEnabled = false;
+  forcedPrizeIndex = null;
+  refreshAdminControls();
+  historyPanel.classList.add('hidden');
+  adminStatus.textContent = 'All local app data reset.';
   lockedCard.classList.add('hidden');
+  ticket.classList.add('hidden');
 });
-document.getElementById('forceAvailable').addEventListener('click', () => {
-  saveState({ lastSpinMonth: 'forced-open' });
-  lockedCard.classList.add('hidden');
-  statusText.textContent = 'Spin forced available. With great power comes questionable decisions.';
-});
+
+populatePrizeSelector();
+refreshAdminControls();
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));

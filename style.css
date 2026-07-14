@@ -44,8 +44,8 @@ h1 { margin: 0; font-size: clamp(2rem, 8vw, 4.4rem); line-height: .92; letter-sp
 .throw-zone { min-height: 132px; width: 100%; display: grid; place-items: center; z-index: 5; }
 
 .little-man {
-  width: 96px;
-  height: 104px;
+  width: 108px;
+  height: 122px;
   display: grid;
   place-items: end center;
   cursor: grab;
@@ -58,32 +58,99 @@ h1 { margin: 0; font-size: clamp(2rem, 8vw, 4.4rem); line-height: .92; letter-sp
 }
 .little-man.dragging { cursor: grabbing; animation: none; z-index: 30; }
 .little-man.flying { animation: none; }
-.cube-face {
-  width: 70px;
-  height: 70px;
-  position: relative;
-  border: 4px solid var(--ink);
-  border-radius: 17px;
-  background: linear-gradient(145deg, #ffb6cf 0%, #ff7aa8 58%, #ff5d96 100%);
-  box-shadow: inset -8px -9px 0 rgba(106, 19, 58, .13), inset 8px 8px 0 rgba(255,255,255,.28), 0 7px 0 var(--ink);
+.cupid-halo {
+  position: absolute;
+  top: 3px;
+  left: 50%;
+  width: 44px;
+  height: 14px;
+  translate: -50% 0;
+  border: 5px solid #ffd166;
+  border-radius: 50%;
+  box-shadow: 0 0 12px rgba(255, 209, 102, .9);
+  animation: haloFloat 1.5s ease-in-out infinite;
+  z-index: 4;
 }
-.cube-face::before {
+.cupid-head {
+  position: absolute;
+  top: 22px;
+  left: 50%;
+  width: 58px;
+  height: 54px;
+  translate: -50% 0;
+  border: 3px solid var(--ink);
+  border-radius: 48% 48% 45% 45%;
+  background: #ffd5bd;
+  box-shadow: inset 5px 6px 0 rgba(255,255,255,.28);
+  z-index: 5;
+}
+.cupid-curl {
+  position: absolute;
+  top: -10px;
+  width: 24px;
+  height: 22px;
+  border: 3px solid var(--ink);
+  border-radius: 50%;
+  background: #d69a56;
+}
+.curl-one { left: -2px; rotate: -18deg; }
+.curl-two { left: 17px; top: -15px; }
+.curl-three { right: -2px; rotate: 18deg; }
+.cupid-eye { position: absolute; top: 23px; width: 7px; height: 10px; border-radius: 50%; background: var(--ink); }
+.cupid-eye-left { left: 15px; }
+.cupid-eye-right { right: 15px; }
+.cupid-cheek { position: absolute; top: 34px; width: 9px; height: 5px; border-radius: 50%; background: rgba(255, 111, 153, .45); }
+.cupid-cheek-left { left: 8px; }
+.cupid-cheek-right { right: 8px; }
+.cupid-mouth { position: absolute; left: 50%; top: 37px; width: 14px; height: 7px; translate: -50% 0; border: 2px solid var(--ink); border-top: 0; border-radius: 0 0 14px 14px; }
+.cupid-body {
+  position: absolute;
+  left: 50%;
+  top: 69px;
+  width: 48px;
+  height: 40px;
+  translate: -50% 0;
+  border: 3px solid var(--ink);
+  border-radius: 18px 18px 24px 24px;
+  background: linear-gradient(140deg, #fff 0 58%, #ffdce8 59% 100%);
+  z-index: 4;
+}
+.toga-fold { position: absolute; left: 19px; top: 2px; width: 3px; height: 33px; background: rgba(255,122,168,.28); rotate: 18deg; }
+.cupid-wing {
+  position: absolute;
+  top: 62px;
+  width: 42px;
+  height: 50px;
+  border: 3px solid var(--ink);
+  background: #fff;
+  z-index: 2;
+}
+.cupid-wing::before, .cupid-wing::after { content: ''; position: absolute; background: #fff; border: 3px solid var(--ink); border-radius: 50%; }
+.cupid-wing-left { left: 3px; border-radius: 70% 25% 65% 35%; rotate: -18deg; transform-origin: right center; animation: wingFlapLeft .65s ease-in-out infinite; }
+.cupid-wing-right { right: 3px; border-radius: 25% 70% 35% 65%; rotate: 18deg; transform-origin: left center; animation: wingFlapRight .65s ease-in-out infinite; }
+.cupid-wing::before { width: 20px; height: 25px; left: 2px; bottom: -9px; }
+.cupid-wing::after { width: 17px; height: 22px; right: 1px; bottom: -10px; }
+.cupid-arm, .cupid-leg { position: absolute; background: #ffd5bd; border: 3px solid var(--ink); border-radius: 999px; z-index: 3; }
+.cupid-arm { top: 77px; width: 12px; height: 33px; }
+.cupid-arm-left { left: 22px; rotate: 28deg; }
+.cupid-arm-right { right: 22px; rotate: -28deg; }
+.cupid-leg { top: 101px; width: 13px; height: 25px; }
+.cupid-leg-left { left: 39px; rotate: 12deg; }
+.cupid-leg-right { right: 39px; rotate: -12deg; }
+.cupid-bow { position: absolute; right: 4px; top: 76px; font-size: 35px; font-weight: 900; color: #bf7a32; rotate: 90deg; z-index: 6; text-shadow: 1px 1px 0 var(--ink); }
+.cupid::after {
   content: '';
   position: absolute;
-  width: 42px;
-  height: 13px;
-  left: 10px;
-  bottom: -14px;
+  width: 48px;
+  height: 12px;
+  left: 30px;
+  bottom: -4px;
   border-radius: 50%;
   background: rgba(52,33,42,.16);
   filter: blur(4px);
   z-index: -1;
 }
-.cube-eye { position: absolute; top: 23px; width: 8px; height: 11px; border-radius: 50%; background: var(--ink); }
-.cube-eye-left { left: 18px; }
-.cube-eye-right { right: 18px; }
-.cube-mouth { position: absolute; left: 50%; top: 42px; width: 20px; height: 10px; translate: -50% 0; border: 3px solid var(--ink); border-top: 0; border-radius: 0 0 20px 20px; }
-.cube-shine { position: absolute; left: 10px; top: 9px; width: 17px; height: 8px; border-radius: 999px; background: rgba(255,255,255,.68); rotate: -28deg; }
+
 .speech-bubble {
   position: absolute;
   left: 56px;
@@ -188,3 +255,48 @@ h1 { margin: 0; font-size: clamp(2rem, 8vw, 4.4rem); line-height: .92; letter-sp
 @keyframes floatSpark { 0%,100% { transform: translateY(0) rotate(-8deg) scale(.9); opacity: .25; } 50% { transform: translateY(-18px) rotate(10deg) scale(1.2); opacity: .65; } }
 @keyframes bubbleWiggle { 0%,100% { transform: rotate(-3deg) translateY(0); } 50% { transform: rotate(3deg) translateY(-3px); } }
 @media (prefers-reduced-motion: reduce) { .cloud, .floating-spark, .little-man, .speech-bubble { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; } }
+
+@keyframes haloFloat {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  50% { transform: translateY(-3px) rotate(2deg); }
+}
+@keyframes wingFlapLeft {
+  0%, 100% { transform: rotate(0deg) scaleY(1); }
+  50% { transform: rotate(-18deg) scaleY(.86); }
+}
+@keyframes wingFlapRight {
+  0%, 100% { transform: rotate(0deg) scaleY(1); }
+  50% { transform: rotate(18deg) scaleY(.86); }
+}
+.little-man.dragging .cupid-wing-left,
+.little-man.flying .cupid-wing-left { animation-duration: .22s; }
+.little-man.dragging .cupid-wing-right,
+.little-man.flying .cupid-wing-right { animation-duration: .22s; }
+
+/* Expanded admin controls */
+.admin-panel {
+  max-height: min(88svh, 760px);
+  overflow-y: auto;
+  text-align: left;
+}
+.admin-panel h2 { text-align: center; }
+.admin-panel > p { text-align: center; }
+.admin-kicker { margin-bottom: 2px !important; color: var(--rose) !important; font-weight: 900; text-transform: uppercase; letter-spacing: .12em; font-size: .76rem; }
+.admin-close { position: absolute; right: 12px; top: 10px; border: 0; background: transparent; font-size: 2rem; line-height: 1; cursor: pointer; color: var(--ink); }
+.admin-grid { display: grid; gap: 10px; margin: 18px 0; }
+.admin-toggle { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 12px 14px; border: 2px solid var(--ink); border-radius: 16px; background: rgba(255,255,255,.62); font-weight: 800; }
+.admin-toggle input { width: 22px; height: 22px; accent-color: var(--rose); }
+.admin-label { display: block; font-weight: 900; margin: 14px 0 7px; }
+.admin-select { width: 100%; border: 2px solid var(--ink); border-radius: 14px; padding: 12px; background: #fff; color: var(--ink); font: inherit; }
+.admin-buttons { margin-top: 16px; }
+.danger-btn { border: 2px solid var(--ink); border-radius: 999px; padding: 12px 18px; font-weight: 900; background: #ffccd8; color: #67112f; box-shadow: 0 5px 0 var(--ink); cursor: pointer; }
+.danger-btn:active { translate: 0 4px; box-shadow: 0 1px 0 var(--ink); }
+.history-panel { margin-top: 20px; border-top: 2px dashed rgba(52,33,42,.35); padding-top: 16px; }
+.history-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.history-heading h3 { margin: 0; }
+.text-btn { border: 0; background: transparent; color: var(--rose); text-decoration: underline; font-weight: 800; cursor: pointer; }
+.history-list { display: grid; gap: 10px; margin-top: 12px; }
+.history-item { border: 2px solid var(--ink); border-radius: 14px; padding: 12px; background: rgba(255,255,255,.72); }
+.history-item strong { display: block; }
+.history-item small { color: var(--muted); }
+.admin-panel:not(.hidden) { animation: ticketPop .35s cubic-bezier(.17,.84,.44,1.2); }
