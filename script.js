@@ -1,7 +1,7 @@
 const PASSWORD = 'Jukian84!';
 const STORAGE_KEY = 'girlfriendPrizeWheelState.v1';
 
-const prizes = [
+const DEFAULT_PRIZES = [
   { name: 'Takeaway & Movie Night', line: 'Home date night. Your favourite takeaway, a film, and zero judgement for blanket hogging.' },
   { name: 'Dinner & Movie Out', line: 'Popcorn tax applies. Complaints department is closed.' },
   { name: 'Surprise Picnic', line: 'Location secret. Snack quality taken extremely seriously.' },
@@ -23,11 +23,22 @@ const prizes = [
   { name: 'Spa Night At Home', line: 'Robes, face masks, and cucumber behaviour.' },
   { name: 'One Yes Day', line: 'Within reason. We are cute, not legally reckless.' },
   { name: 'Handwritten Letter', line: 'Old-school romance. Actual handwriting. Brace yourself.' },
-  { name: 'Surprise Flowers', line: 'Florals incoming. Hay fever not included.' },
+  { name: 'Choose Our Next Date', line: 'You pick the next date idea and Cupid will make it happen.' },
   { name: 'Walk & Brunch', line: 'Exercise followed by carbs. Balance restored.' },
   { name: 'Stargazing Date', line: 'Stars, snacks, and pretending we know constellations.' },
   { name: 'Board Games & Snacks', line: 'Cute night. Competitive behaviour may occur.' }
 ];
+
+function normalisePrizeList(value) {
+  if (!Array.isArray(value)) return null;
+  const cleaned = value.map(item => ({
+    name: String(item?.name || '').trim(),
+    line: String(item?.line || '').trim()
+  })).filter(item => item.name);
+  return cleaned.length >= 2 ? cleaned : null;
+}
+
+let prizes = normalisePrizeList(loadState().customPrizes) || DEFAULT_PRIZES.map(prize => ({ ...prize }));
 
 const canvas = document.getElementById('wheelCanvas');
 const ctx = canvas.getContext('2d');
@@ -551,6 +562,10 @@ const clearHistory = document.getElementById('clearHistory');
 const resetAll = document.getElementById('resetAll');
 const adminStatus = document.getElementById('adminStatus');
 const cancelPassword = document.getElementById('cancelPassword');
+const prizeEditorList = document.getElementById('prizeEditorList');
+const addPrize = document.getElementById('addPrize');
+const savePrizes = document.getElementById('savePrizes');
+const restorePrizes = document.getElementById('restorePrizes');
 
 function saveAdminSettings() {
   saveState({ adminSettings: { unlimited: testMode, monthlyLock: monthlyLockEnabled } });
@@ -563,12 +578,66 @@ function refreshAdminControls() {
 }
 
 function populatePrizeSelector() {
+  const selected = forcePrizeSelect.value;
+  forcePrizeSelect.innerHTML = '<option value="">Random prize</option>';
   prizes.forEach((prize, index) => {
     const option = document.createElement('option');
     option.value = String(index);
     option.textContent = prize.name;
     forcePrizeSelect.appendChild(option);
   });
+  if ([...forcePrizeSelect.options].some(option => option.value === selected)) forcePrizeSelect.value = selected;
+}
+
+function renderPrizeEditor() {
+  prizeEditorList.innerHTML = '';
+  prizes.forEach((prize, index) => {
+    const row = document.createElement('div');
+    row.className = 'prize-editor-row';
+    row.innerHTML = `
+      <div class="prize-editor-number">${index + 1}</div>
+      <div class="prize-editor-fields">
+        <input class="admin-input prize-name-input" type="text" value="${escapeHtml(prize.name)}" aria-label="Prize ${index + 1} name">
+        <textarea class="admin-input prize-line-input" rows="2" aria-label="Prize ${index + 1} description">${escapeHtml(prize.line)}</textarea>
+      </div>
+      <button class="prize-delete-btn" type="button" aria-label="Delete ${escapeHtml(prize.name)}">Delete</button>`;
+    row.querySelector('.prize-delete-btn').addEventListener('click', () => {
+      if (prizes.length <= 2) {
+        adminStatus.textContent = 'Keep at least two prizes so the wheel still has something to do.';
+        return;
+      }
+      prizes.splice(index, 1);
+      renderPrizeEditor();
+    });
+    prizeEditorList.appendChild(row);
+  });
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[char]));
+}
+
+function readPrizeEditor() {
+  return [...prizeEditorList.querySelectorAll('.prize-editor-row')].map(row => ({
+    name: row.querySelector('.prize-name-input').value.trim(),
+    line: row.querySelector('.prize-line-input').value.trim()
+  })).filter(prize => prize.name);
+}
+
+function applyPrizeChanges(nextPrizes) {
+  const cleaned = normalisePrizeList(nextPrizes);
+  if (!cleaned) {
+    adminStatus.textContent = 'Please keep at least two named prizes.';
+    return false;
+  }
+  prizes = cleaned;
+  forcedPrizeIndex = null;
+  saveState({ customPrizes: prizes });
+  populatePrizeSelector();
+  renderPrizeEditor();
+  drawWheel();
+  adminStatus.textContent = `${prizes.length} prizes saved. The wheel has been updated.`;
+  return true;
 }
 
 function formatAdminDate(value) {
@@ -593,6 +662,7 @@ function renderHistory() {
 
 function openAdmin() {
   refreshAdminControls();
+  renderPrizeEditor();
   adminPanel.classList.remove('hidden');
   lockedCard.classList.add('hidden');
   statusText.textContent = 'Admin mode unlocked. Cupid is now under questionable management.';
@@ -677,6 +747,37 @@ viewHistory.addEventListener('click', () => {
   historyPanel.classList.toggle('hidden');
 });
 
+addPrize.addEventListener('click', () => {
+  const current = readPrizeEditor();
+  prizes = [...current, { name: 'New Prize', line: 'Add the funny little terms and conditions here.' }];
+  renderPrizeEditor();
+  prizeEditorList.lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+});
+
+savePrizes.addEventListener('click', () => applyPrizeChanges(readPrizeEditor()));
+
+restorePrizes.addEventListener('click', () => {
+  if (!confirm('Restore the original prize list? Your custom edits will be replaced.')) return;
+  prizes = DEFAULT_PRIZES.map(prize => ({ ...prize }));
+  const state = loadState();
+  delete state.customPrizes;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  forcedPrizeIndex = null;
+  populatePrizeSelector();
+  renderPrizeEditor();
+  drawWheel();
+  adminStatus.textContent = 'Original prize list restored.';
+});
+
+document.getElementById('forceAvailable').addEventListener('click', () => {
+  const state = loadState();
+  delete state.lastSpinDate;
+  delete state.lastSpinMonth;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  lockedCard.classList.add('hidden');
+  adminStatus.textContent = 'Spin is available again.';
+});
+
 clearHistory.addEventListener('click', () => {
   if (!confirm('Clear all claimed ticket history?')) return;
   saveState({ ticketHistory: [] });
@@ -690,6 +791,10 @@ resetAll.addEventListener('click', () => {
   testMode = false;
   monthlyLockEnabled = false;
   forcedPrizeIndex = null;
+  prizes = DEFAULT_PRIZES.map(prize => ({ ...prize }));
+  populatePrizeSelector();
+  renderPrizeEditor();
+  drawWheel();
   refreshAdminControls();
   historyPanel.classList.add('hidden');
   adminStatus.textContent = 'All local app data reset.';

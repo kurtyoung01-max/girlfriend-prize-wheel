@@ -131,6 +131,21 @@
         <option value="">Random prize</option>
       </select>
 
+      <section class="prize-editor">
+        <div class="prize-editor-heading">
+          <div>
+            <p class="admin-label prize-editor-title">Edit wheel prizes</p>
+            <small>Change the prize name or the message shown on its ticket.</small>
+          </div>
+          <button id="addPrize" class="secondary-btn compact-btn" type="button">Add prize</button>
+        </div>
+        <div id="prizeEditorList" class="prize-editor-list"></div>
+        <div class="prize-editor-actions">
+          <button id="savePrizes" class="primary-btn" type="button">Save prize changes</button>
+          <button id="restorePrizes" class="text-btn" type="button">Restore originals</button>
+        </div>
+      </section>
+
       <div class="admin-buttons">
         <button id="testSpin" class="secondary-btn" type="button">Test spin</button>
         <button id="resetSpin" class="secondary-btn" type="button">Reset monthly spin</button>
