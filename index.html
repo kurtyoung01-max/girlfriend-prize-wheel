@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#ff7aa8">
+  <title>Girlfriend Prize Wheel</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app">
+    <section class="hero">
+      <button id="secretHeart" class="secret-heart" aria-label="secret admin">♥</button>
+      <p class="eyebrow">Unlimited testing chaos</p>
+      <h1 id="titleTap">Girlfriend Prize Wheel</h1>
+      <p id="statusText" class="status">Throw the tiny prize goblin at the wheel.</p>
+    </section>
+
+    <section class="wheel-zone" aria-label="Prize wheel game">
+      <canvas id="wheelCanvas" width="720" height="720"></canvas>
+      <div id="pointer" class="pointer">▼</div>
+      <div id="wheelGlow" class="wheel-glow"></div>
+    </section>
+
+    <section class="throw-zone">
+      <div id="littleMan" class="little-man" role="button" aria-label="Drag and throw character">
+        <div class="head">😊</div>
+        <div class="body">💘</div>
+        <div class="legs">⌒⌒</div>
+      </div>
+      <p class="drag-help">Drag me, fling me, romance responsibly.</p>
+    </section>
+
+    <section id="ticket" class="ticket hidden" aria-live="polite">
+      <div class="ticket-top">You have won</div>
+      <h2 id="prizeName"></h2>
+      <p id="prizeLine"></p>
+      <button id="closeTicket" class="primary-btn">Claim ticket</button>
+      <div id="claimedTicketDetails" class="claimed-ticket-details hidden">
+        <div class="ticket-divider"></div>
+        <p><strong>Prize:</strong> <span id="claimedPrizeName"></span></p>
+        <p><strong>Claimed:</strong> <span id="claimedDate"></span></p>
+        <p><strong>Valid until:</strong> <span id="expiryDate"></span></p>
+        <p class="ticket-code">Ticket code: <span id="ticketCode"></span></p>
+        <p class="ticket-smallprint">Redeem within 31 days. Excessive smugness is permitted.</p>
+        <button id="saveTicketPhoto" class="primary-btn save-ticket-btn">Save ticket as photo</button>
+        <p id="saveTicketHint" class="save-ticket-hint">Tap save, then choose Save Image or Downloads on your phone.</p>
+      </div>
+    </section>
+
+    <section id="lockedCard" class="locked-card hidden">
+      <h2>Prize already claimed</h2>
+      <p id="lockedMessage"></p>
+      <p id="lastPrizeText"></p>
+    </section>
+
+    <section id="adminPanel" class="admin-panel hidden">
+      <h2>Testing mode</h2>
+      <p>Unlimited chaos unlocked.</p>
+      <div class="admin-buttons">
+        <button id="testSpin" class="secondary-btn">Test spin</button>
+        <button id="resetSpin" class="secondary-btn">Reset monthly spin</button>
+        <button id="forceAvailable" class="secondary-btn">Force spin available</button>
+      </div>
+    </section>
+
+    <dialog id="passwordDialog" class="password-dialog">
+      <form method="dialog" id="passwordForm">
+        <h2>Secret prize goblin controls</h2>
+        <input id="passwordInput" type="password" placeholder="Password" autocomplete="off">
+        <p id="passwordError" class="password-error"></p>
+        <div class="dialog-buttons">
+          <button value="cancel" class="secondary-btn">Cancel</button>
+          <button id="unlockBtn" value="default" class="primary-btn">Unlock</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div id="confetti" class="confetti"></div>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
