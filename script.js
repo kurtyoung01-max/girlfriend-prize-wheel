@@ -2,7 +2,7 @@ const PASSWORD = 'Jukian84!';
 const STORAGE_KEY = 'girlfriendPrizeWheelState.v1';
 
 const prizes = [
-  { name: 'Fish & Movie Night', line: 'Home date night. Fish, film, and zero judgement for blanket hogging.' },
+  { name: 'Takeaway & Movie Night', line: 'Home date night. Your favourite takeaway, a film, and zero judgement for blanket hogging.' },
   { name: 'Dinner & Movie Out', line: 'Popcorn tax applies. Complaints department is closed.' },
   { name: 'Surprise Picnic', line: 'Location secret. Snack quality taken extremely seriously.' },
   { name: 'Surprise Present', line: 'A mystery gift. No, you cannot interrogate the goblin.' },
@@ -51,7 +51,7 @@ const confetti = document.getElementById('confetti');
 
 let rotation = 0;
 let spinning = false;
-let testMode = false;
+let testMode = true; // Temporary testing build: unlimited spins enabled
 let titleTapCount = 0;
 let drag = null;
 
