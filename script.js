@@ -5,7 +5,7 @@ const prizes = [
   { name: 'Takeaway & Movie Night', line: 'Home date night. Your favourite takeaway, a film, and zero judgement for blanket hogging.' },
   { name: 'Dinner & Movie Out', line: 'Popcorn tax applies. Complaints department is closed.' },
   { name: 'Surprise Picnic', line: 'Location secret. Snack quality taken extremely seriously.' },
-  { name: 'Surprise Present', line: 'A mystery gift. No, you cannot interrogate the goblin.' },
+  { name: 'Surprise Present', line: 'A mystery gift. No, you cannot interrogate Cupid.' },
   { name: 'Night Away', line: 'Tiny escape unlocked. Bags packed, adulting ignored.' },
   { name: '3 Free Massages', line: 'Terms: I may sigh dramatically, but service will be delivered.' },
   { name: 'Breakfast in Bed', line: 'Crumbs included at no extra charge.' },
@@ -18,7 +18,7 @@ const prizes = [
   { name: 'Blanket Fort Takeaway', line: 'Architecture degree not required. Snacks mandatory.' },
   { name: 'Mystery Day Trip', line: 'Destination unknown. Playlist probably suspicious.' },
   { name: 'Fancy Dessert Run', line: 'Dinner is optional. Dessert is leadership.' },
-  { name: 'Chore-Free Day', line: 'One day off from boring house stuff. The goblin has spoken.' },
+  { name: 'Chore-Free Day', line: 'One day off from boring house stuff. Cupid has spoken.' },
   { name: 'Homemade Dinner', line: 'Cooked with love and only mild panic.' },
   { name: 'Spa Night At Home', line: 'Robes, face masks, and cucumber behaviour.' },
   { name: 'One Yes Day', line: 'Within reason. We are cute, not legally reckless.' },
@@ -157,7 +157,7 @@ function setLockedView() {
     lockedCard.classList.add('hidden');
     return;
   }
-  lockedMessage.textContent = `Nice try, prize goblin. Come back on ${nextMonthText()}.`;
+  lockedMessage.textContent = `Nice try. Cupid says come back on ${nextMonthText()}.`;
   lastPrizeText.textContent = state.lastPrize ? `Last prize: ${state.lastPrize.name}` : '';
   lockedCard.classList.remove('hidden');
   statusText.textContent = 'The monthly romance economy is currently closed.';
@@ -534,7 +534,8 @@ saveTicketPhoto.addEventListener('click', saveTicketAsPhoto);
 function openPasswordDialog() {
   passwordInput.value = '';
   passwordError.textContent = '';
-  passwordDialog.showModal();
+  if (typeof passwordDialog.showModal === 'function') passwordDialog.showModal();
+  else passwordDialog.setAttribute('open', '');
   setTimeout(() => passwordInput.focus(), 50);
 }
 
@@ -549,6 +550,7 @@ const historyList = document.getElementById('historyList');
 const clearHistory = document.getElementById('clearHistory');
 const resetAll = document.getElementById('resetAll');
 const adminStatus = document.getElementById('adminStatus');
+const cancelPassword = document.getElementById('cancelPassword');
 
 function saveAdminSettings() {
   saveState({ adminSettings: { unlimited: testMode, monthlyLock: monthlyLockEnabled } });
@@ -610,12 +612,20 @@ titleTap.addEventListener('click', () => {
 passwordForm.addEventListener('submit', (event) => {
   event.preventDefault();
   if (passwordInput.value === PASSWORD) {
-    passwordDialog.close();
+    if (typeof passwordDialog.close === 'function') passwordDialog.close();
+    else passwordDialog.removeAttribute('open');
     openAdmin();
+    requestAnimationFrame(() => adminPanel.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   } else {
     passwordError.textContent = 'Nope. Cupid says the password is wrong.';
     wobbleMan();
   }
+});
+
+
+cancelPassword.addEventListener('click', () => {
+  if (typeof passwordDialog.close === 'function') passwordDialog.close();
+  else passwordDialog.removeAttribute('open');
 });
 
 closeAdmin.addEventListener('click', () => adminPanel.classList.add('hidden'));
@@ -694,5 +704,19 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
 }
 
-drawWheel();
-setLockedView();
+function initialiseApp() {
+  // Draw immediately, then again after layout and fonts settle on mobile browsers.
+  drawWheel();
+  setLockedView();
+  requestAnimationFrame(drawWheel);
+  window.setTimeout(drawWheel, 120);
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initialiseApp, { once: true });
+} else {
+  initialiseApp();
+}
+
+window.addEventListener('load', drawWheel, { once: true });
+window.addEventListener('resize', () => requestAnimationFrame(drawWheel));

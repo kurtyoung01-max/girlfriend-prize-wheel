@@ -109,24 +109,54 @@
       <p id="lastPrizeText"></p>
     </section>
 
-    <section id="adminPanel" class="admin-panel hidden">
-      <h2>Testing mode</h2>
-      <p>Unlimited chaos unlocked.</p>
+    <section id="adminPanel" class="admin-panel hidden" aria-live="polite">
+      <button id="closeAdmin" class="admin-close" type="button" aria-label="Close admin">×</button>
+      <p class="admin-kicker">Cupid control room</p>
+      <h2>Admin mode</h2>
+      <p id="adminStatus">Testing controls unlocked.</p>
+
+      <div class="admin-grid">
+        <label class="admin-toggle">
+          <span>Unlimited test spins</span>
+          <input id="unlimitedToggle" type="checkbox">
+        </label>
+        <label class="admin-toggle">
+          <span>Monthly lock</span>
+          <input id="monthlyLockToggle" type="checkbox">
+        </label>
+      </div>
+
+      <label class="admin-label" for="forcePrizeSelect">Force next prize</label>
+      <select id="forcePrizeSelect" class="admin-select">
+        <option value="">Random prize</option>
+      </select>
+
       <div class="admin-buttons">
-        <button id="testSpin" class="secondary-btn">Test spin</button>
-        <button id="resetSpin" class="secondary-btn">Reset monthly spin</button>
-        <button id="forceAvailable" class="secondary-btn">Force spin available</button>
+        <button id="testSpin" class="secondary-btn" type="button">Test spin</button>
+        <button id="resetSpin" class="secondary-btn" type="button">Reset monthly spin</button>
+        <button id="forceAvailable" class="secondary-btn" type="button">Force spin available</button>
+        <button id="previewTicket" class="secondary-btn" type="button">Preview selected ticket</button>
+        <button id="viewHistory" class="secondary-btn" type="button">View ticket history</button>
+        <button id="resetAll" class="danger-btn" type="button">Reset all app data</button>
+      </div>
+
+      <div id="historyPanel" class="history-panel hidden">
+        <div class="history-heading">
+          <h3>Claimed tickets</h3>
+          <button id="clearHistory" class="text-btn" type="button">Clear history</button>
+        </div>
+        <div id="historyList" class="history-list"></div>
       </div>
     </section>
 
     <dialog id="passwordDialog" class="password-dialog">
-      <form method="dialog" id="passwordForm">
-        <h2>Secret prize goblin controls</h2>
+      <form id="passwordForm">
+        <h2>Secret Cupid controls</h2>
         <input id="passwordInput" type="password" placeholder="Password" autocomplete="off">
         <p id="passwordError" class="password-error"></p>
         <div class="dialog-buttons">
-          <button value="cancel" class="secondary-btn">Cancel</button>
-          <button id="unlockBtn" value="default" class="primary-btn">Unlock</button>
+          <button id="cancelPassword" type="button" class="secondary-btn">Cancel</button>
+          <button id="unlockBtn" type="submit" class="primary-btn">Unlock</button>
         </div>
       </form>
     </dialog>
