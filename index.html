@@ -10,6 +10,15 @@
 </head>
 <body>
   <main class="app">
+    <div class="sky-scene" aria-hidden="true">
+      <div class="cloud cloud-one"><span></span><span></span><span></span></div>
+      <div class="cloud cloud-two"><span></span><span></span><span></span></div>
+      <div class="cloud cloud-three"><span></span><span></span><span></span></div>
+      <div class="floating-spark spark-one">✦</div>
+      <div class="floating-spark spark-two">♥</div>
+      <div class="floating-spark spark-three">✧</div>
+      <div class="floating-spark spark-four">★</div>
+    </div>
     <section class="hero">
       <button id="secretHeart" class="secret-heart" aria-label="secret admin">♥</button>
       <p class="eyebrow">Unlimited testing chaos</p>
@@ -24,12 +33,16 @@
     </section>
 
     <section class="throw-zone">
-      <div id="littleMan" class="little-man" role="button" aria-label="Drag and throw character">
-        <div class="head">😊</div>
-        <div class="body">💘</div>
-        <div class="legs">⌒⌒</div>
+      <div id="littleMan" class="little-man" role="button" aria-label="Drag and throw the cube">
+        <div class="speech-bubble">Throw me!</div>
+        <div class="cube-face">
+          <span class="cube-eye cube-eye-left"></span>
+          <span class="cube-eye cube-eye-right"></span>
+          <span class="cube-mouth"></span>
+          <span class="cube-shine"></span>
+        </div>
       </div>
-      <p class="drag-help">Drag me, fling me, romance responsibly.</p>
+      <p class="drag-help">Drag the cube and launch it at the wheel.</p>
     </section>
 
     <section id="ticket" class="ticket hidden" aria-live="polite">
@@ -44,8 +57,8 @@
         <p><strong>Valid until:</strong> <span id="expiryDate"></span></p>
         <p class="ticket-code">Ticket code: <span id="ticketCode"></span></p>
         <p class="ticket-smallprint">Redeem within 31 days. Excessive smugness is permitted.</p>
-        <button id="saveTicketPhoto" class="primary-btn save-ticket-btn">Save ticket as photo</button>
-        <p id="saveTicketHint" class="save-ticket-hint">Tap save, then choose Save Image or Downloads on your phone.</p>
+        <button id="saveTicketPhoto" class="primary-btn save-ticket-btn">Download ticket photo</button>
+        <p id="saveTicketHint" class="save-ticket-hint">Downloads straight to your device as a PNG image.</p>
       </div>
     </section>
 

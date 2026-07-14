@@ -332,7 +332,7 @@ littleMan.addEventListener('pointerup', (event) => {
     littleMan.style.top = `${endY}px`;
     const hit = rectsOverlap(littleMan.getBoundingClientRect(), canvas.getBoundingClientRect());
     if (hit) {
-      statusText.textContent = 'Direct hit. Tiny Cupid has committed to the bit.';
+      statusText.textContent = 'Direct hit. The cube has fulfilled its tiny destiny.';
       spinWheel();
     } else {
       statusText.textContent = 'Missed it. Even romance needs aim.';
@@ -360,8 +360,8 @@ closeTicket.addEventListener('click', () => {
     expiryDate.textContent = formatDate(expiresAt);
     ticketCode.textContent = code;
     claimedTicketDetails.classList.remove('hidden');
-    saveTicketPhoto.textContent = 'Save ticket as photo';
-    saveTicketHint.textContent = 'Tap save, then choose Save Image or Downloads on your phone.';
+    saveTicketPhoto.textContent = 'Download ticket photo';
+    saveTicketHint.textContent = 'Downloads straight to your device as a PNG image.';
     closeTicket.textContent = 'Done';
     saveState({
       lastClaimedTicket: {
@@ -499,26 +499,16 @@ async function saveTicketAsPhoto() {
     if (!blob) throw new Error('Image creation failed');
     const safePrize = claimedPrizeName.textContent.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     const fileName = `${safePrize || 'prize'}-ticket.png`;
-    const file = new File([blob], fileName, { type: 'image/png' });
-
-    if (navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
-      await navigator.share({
-        files: [file],
-        title: 'My prize ticket',
-        text: `I won: ${claimedPrizeName.textContent}`
-      });
-      saveTicketHint.textContent = 'Ticket opened in your phone share menu. Choose Save Image or save it to Files.';
-    } else {
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1500);
-      saveTicketHint.textContent = 'Ticket downloaded as a PNG photo. Check Downloads or Files.';
-    }
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2500);
+    saveTicketHint.textContent = 'Ticket downloaded as a PNG. Check Downloads on your phone or computer.';
     saveTicketPhoto.textContent = 'Saved. Very official.';
     vibrate([20, 30, 20]);
   } catch (error) {
@@ -527,7 +517,7 @@ async function saveTicketAsPhoto() {
     } else {
       saveTicketHint.textContent = 'Could not save automatically. Try again in Chrome or Safari.';
     }
-    saveTicketPhoto.textContent = 'Save ticket as photo';
+    saveTicketPhoto.textContent = 'Download ticket photo';
   } finally {
     saveTicketPhoto.disabled = false;
   }
