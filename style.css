@@ -367,3 +367,108 @@ h1 { margin: 0; font-size: clamp(2rem, 8vw, 4.4rem); line-height: .92; letter-sp
   .prize-delete-btn { grid-column: 2; justify-self: end; }
   .prize-editor-list { max-height: 52vh; }
 }
+
+
+/* Mobile full-size overhaul */
+@media (max-width: 700px) {
+  html { font-size: 18px; width: 100%; }
+  html, body { min-width: 100%; width: 100%; min-height: 100%; }
+  body { overflow-x: hidden; }
+
+  .app {
+    width: 100%;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 12px;
+    padding: max(18px, env(safe-area-inset-top)) 0 max(28px, env(safe-area-inset-bottom));
+  }
+
+  .hero {
+    width: 100%;
+    max-width: none;
+    padding: 0 18px;
+  }
+
+  .eyebrow { font-size: .88rem; margin-bottom: 7px; }
+  h1 {
+    width: 100%;
+    font-size: clamp(2.8rem, 13.5vw, 4.2rem);
+    line-height: .93;
+    letter-spacing: -.055em;
+  }
+  .status {
+    max-width: 34ch;
+    font-size: 1.08rem;
+    line-height: 1.38;
+    margin-top: 12px;
+  }
+
+  .wheel-zone {
+    flex: 0 0 auto;
+    width: min(100vw, 560px);
+    max-width: none;
+    margin: 2px 0 0;
+    aspect-ratio: 1 / 1;
+  }
+  #wheelCanvas { display: block; width: 100%; height: 100%; }
+  .pointer { top: -8px; font-size: 2.8rem; }
+
+  .throw-zone {
+    width: 100%;
+    min-height: 210px;
+    padding: 0 12px 12px;
+  }
+  .little-man {
+    width: 180px;
+    height: 190px;
+  }
+  .cupid-art {
+    width: 180px;
+    height: 190px;
+  }
+  .speech-bubble {
+    left: 108px;
+    top: -2px;
+    font-size: 1rem;
+    padding: 10px 14px;
+  }
+  .drag-help {
+    font-size: 1.06rem;
+    line-height: 1.35;
+    margin-top: 8px;
+  }
+
+  .ticket, .locked-card, .admin-panel {
+    width: calc(100vw - 16px);
+    max-width: 560px;
+    padding: 26px 20px;
+    border-radius: 24px;
+  }
+  .ticket h2, .locked-card h2, .admin-panel h2 { font-size: 2.45rem; }
+  .ticket p, .locked-card p, .admin-panel p { font-size: 1.05rem; }
+  .admin-panel { max-height: calc(100dvh - 16px); }
+  .admin-toggle, .admin-select, .admin-input { font-size: 1rem; }
+  .primary-btn, .secondary-btn, .danger-btn {
+    width: 100%;
+    min-height: 54px;
+    font-size: 1.05rem;
+  }
+  .admin-buttons, .dialog-buttons { flex-direction: column; align-items: stretch; }
+
+  .password-dialog {
+    width: calc(100vw - 18px);
+    max-width: 520px;
+    padding: 24px 18px;
+  }
+}
+
+@media (max-width: 390px) {
+  html { font-size: 17px; }
+  h1 { font-size: 2.7rem; }
+  .wheel-zone { width: 100vw; }
+  .little-man, .cupid-art { width: 165px; height: 176px; }
+  .speech-bubble { left: 98px; }
+}
