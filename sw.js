@@ -1,9 +1,9 @@
-const CACHE = 'girlfriend-prize-wheel-v7-mobile-full-size';
-const FILES = ['./', './index.html', './style.css', './script.js', './manifest.json', './icon.svg'];
+const CACHE = 'girlfriend-prize-wheel-v9-wheel-admin-fix';
+const APP_SHELL = ['./', './index.html', './style.css', './script.js', './manifest.json', './icon.svg'];
 
 self.addEventListener('install', event => {
   self.skipWaiting();
-  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(FILES)));
+  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(APP_SHELL)));
 });
 
 self.addEventListener('activate', event => {
@@ -15,10 +15,21 @@ self.addEventListener('activate', event => {
 });
 
 self.addEventListener('fetch', event => {
+  if (event.request.method !== 'GET') return;
+
   if (event.request.mode === 'navigate') {
-    event.respondWith(fetch(event.request).catch(() => caches.match('./index.html')));
+    event.respondWith(
+      fetch(event.request, { cache: 'no-store' })
+        .then(response => {
+          const copy = response.clone();
+          caches.open(CACHE).then(cache => cache.put('./index.html', copy));
+          return response;
+        })
+        .catch(() => caches.match('./index.html'))
+    );
     return;
   }
+
   event.respondWith(
     fetch(event.request)
       .then(response => {
