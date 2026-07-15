@@ -6,11 +6,13 @@
   <meta name="theme-color" content="#ff7aa8">
   <title>Girlfriend Prize Wheel</title>
   <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <main class="app">
     <div class="sky-scene" aria-hidden="true">
+      <div class="sun-glow"></div>
       <div class="cloud cloud-one"><span></span><span></span><span></span></div>
       <div class="cloud cloud-two"><span></span><span></span><span></span></div>
       <div class="cloud cloud-three"><span></span><span></span><span></span></div>
@@ -19,21 +21,30 @@
       <div class="floating-spark spark-three">✧</div>
       <div class="floating-spark spark-four">★</div>
     </div>
+
     <section class="hero">
-      <button id="secretHeart" class="secret-heart" aria-label="secret admin">♥</button>
-      <p class="eyebrow">Unlimited testing chaos</p>
+      <button id="secretHeart" class="secret-heart" type="button" aria-label="Open secret admin controls">♥</button>
+      <p id="modeLabel" class="eyebrow">Unlimited testing chaos</p>
       <h1 id="titleTap">Girlfriend Prize Wheel</h1>
       <p id="statusText" class="status">Throw Cupid at the wheel to reveal your prize.</p>
     </section>
 
-    <section class="wheel-zone" aria-label="Prize wheel game">
-      <canvas id="wheelCanvas" width="720" height="720"></canvas>
-      <div id="pointer" class="pointer">▼</div>
-      <div id="wheelGlow" class="wheel-glow"></div>
+    <section class="game-stage" aria-label="Prize wheel game">
+      <div class="wheel-zone">
+        <canvas id="wheelCanvas" width="720" height="720" aria-label="Prize wheel"></canvas>
+        <div id="pointer" class="pointer" aria-hidden="true">▼</div>
+        <div id="wheelGlow" class="wheel-glow" aria-hidden="true"></div>
+      </div>
+
+      <section id="lockedCard" class="locked-card hidden" aria-live="polite">
+        <h2>Prize already claimed</h2>
+        <p id="lockedMessage"></p>
+        <p id="lastPrizeText"></p>
+      </section>
     </section>
 
     <section class="throw-zone">
-      <div id="littleMan" class="little-man cupid" role="button" aria-label="Drag and throw Cupid">
+      <div id="littleMan" class="little-man cupid" role="button" tabindex="0" aria-label="Drag and throw Cupid">
         <div class="speech-bubble">Throw me!</div>
         <svg class="cupid-art" viewBox="0 0 180 190" aria-hidden="true">
           <defs>
@@ -53,9 +64,9 @@
             <ellipse class="cupid-svg-halo" cx="90" cy="18" rx="31" ry="8" fill="none" stroke="#ffd45f" stroke-width="7"/>
             <g class="cupid-svg-wings">
               <path class="wing wing-left" d="M58 92 C22 65 8 87 22 112 C5 116 9 142 31 141 C28 159 53 164 68 137 Z" fill="#fff" stroke="#34212a" stroke-width="5" stroke-linejoin="round"/>
-              <path class="wing-detail" d="M49 103 C31 93 25 105 32 117 M53 119 C35 116 34 132 46 137" fill="none" stroke="#d9c7cf" stroke-width="4" stroke-linecap="round"/>
+              <path d="M49 103 C31 93 25 105 32 117 M53 119 C35 116 34 132 46 137" fill="none" stroke="#d9c7cf" stroke-width="4" stroke-linecap="round"/>
               <path class="wing wing-right" d="M122 92 C158 65 172 87 158 112 C175 116 171 142 149 141 C152 159 127 164 112 137 Z" fill="#fff" stroke="#34212a" stroke-width="5" stroke-linejoin="round"/>
-              <path class="wing-detail" d="M131 103 C149 93 155 105 148 117 M127 119 C145 116 146 132 134 137" fill="none" stroke="#d9c7cf" stroke-width="4" stroke-linecap="round"/>
+              <path d="M131 103 C149 93 155 105 148 117 M127 119 C145 116 146 132 134 137" fill="none" stroke="#d9c7cf" stroke-width="4" stroke-linecap="round"/>
             </g>
             <path d="M70 122 C65 150 68 173 90 177 C112 173 115 150 110 122 Z" fill="url(#toga)" stroke="#34212a" stroke-width="5"/>
             <path d="M91 126 L75 166 M89 128 L106 160" stroke="#e7a9c0" stroke-width="5" stroke-linecap="round"/>
@@ -68,8 +79,8 @@
             <circle cx="68" cy="38" r="15" fill="#d99a54" stroke="#34212a" stroke-width="5"/>
             <circle cx="91" cy="31" r="17" fill="#d99a54" stroke="#34212a" stroke-width="5"/>
             <circle cx="116" cy="39" r="15" fill="#d99a54" stroke="#34212a" stroke-width="5"/>
-            <ellipse class="eye eye-left" cx="73" cy="78" rx="5" ry="8" fill="#34212a"/>
-            <ellipse class="eye eye-right" cx="107" cy="78" rx="5" ry="8" fill="#34212a"/>
+            <ellipse cx="73" cy="78" rx="5" ry="8" fill="#34212a"/>
+            <ellipse cx="107" cy="78" rx="5" ry="8" fill="#34212a"/>
             <circle cx="71" cy="75" r="1.8" fill="#fff"/>
             <circle cx="105" cy="75" r="1.8" fill="#fff"/>
             <ellipse cx="61" cy="94" rx="10" ry="5" fill="#f28daa" opacity=".48"/>
@@ -86,11 +97,11 @@
       <p class="drag-help">Drag Cupid and launch him at the wheel.</p>
     </section>
 
-    <section id="ticket" class="ticket hidden" aria-live="polite">
+    <section id="ticket" class="modal-card ticket hidden" aria-live="polite" aria-modal="true">
       <div class="ticket-top">You have won</div>
       <h2 id="prizeName"></h2>
       <p id="prizeLine"></p>
-      <button id="closeTicket" class="primary-btn">Claim ticket</button>
+      <button id="closeTicket" class="primary-btn" type="button">Claim ticket</button>
       <div id="claimedTicketDetails" class="claimed-ticket-details hidden">
         <div class="ticket-divider"></div>
         <p><strong>Prize:</strong> <span id="claimedPrizeName"></span></p>
@@ -98,18 +109,12 @@
         <p><strong>Valid until:</strong> <span id="expiryDate"></span></p>
         <p class="ticket-code">Ticket code: <span id="ticketCode"></span></p>
         <p class="ticket-smallprint">Redeem within 31 days. Excessive smugness is permitted.</p>
-        <button id="saveTicketPhoto" class="primary-btn save-ticket-btn">Download ticket photo</button>
+        <button id="saveTicketPhoto" class="primary-btn save-ticket-btn" type="button">Download ticket photo</button>
         <p id="saveTicketHint" class="save-ticket-hint">Downloads straight to your device as a PNG image.</p>
       </div>
     </section>
 
-    <section id="lockedCard" class="locked-card hidden">
-      <h2>Prize already claimed</h2>
-      <p id="lockedMessage"></p>
-      <p id="lastPrizeText"></p>
-    </section>
-
-    <section id="adminPanel" class="admin-panel hidden" aria-live="polite">
+    <section id="adminPanel" class="admin-panel hidden" aria-live="polite" aria-modal="true">
       <button id="closeAdmin" class="admin-close" type="button" aria-label="Close admin">×</button>
       <p class="admin-kicker">Cupid control room</p>
       <h2>Admin mode</h2>
@@ -137,8 +142,22 @@
         <button id="forceAvailable" class="secondary-btn" type="button">Force spin available</button>
         <button id="previewTicket" class="secondary-btn" type="button">Preview selected ticket</button>
         <button id="viewHistory" class="secondary-btn" type="button">View ticket history</button>
-        <button id="resetAll" class="danger-btn" type="button">Reset all app data</button>
       </div>
+
+      <section class="prize-editor" aria-labelledby="prizeEditorTitle">
+        <div class="prize-editor-heading">
+          <div>
+            <h3 id="prizeEditorTitle">Edit prizes</h3>
+            <small>Change names and captions, then press Save prizes.</small>
+          </div>
+          <button id="addPrize" class="secondary-btn compact-btn" type="button">Add prize</button>
+        </div>
+        <div id="prizeEditorList" class="prize-editor-list"></div>
+        <div class="prize-editor-actions">
+          <button id="savePrizes" class="primary-btn" type="button">Save prizes</button>
+          <button id="restorePrizes" class="secondary-btn" type="button">Restore defaults</button>
+        </div>
+      </section>
 
       <div id="historyPanel" class="history-panel hidden">
         <div class="history-heading">
@@ -147,12 +166,14 @@
         </div>
         <div id="historyList" class="history-list"></div>
       </div>
+
+      <button id="resetAll" class="danger-btn" type="button">Reset all app data</button>
     </section>
 
     <dialog id="passwordDialog" class="password-dialog">
-      <form id="passwordForm">
+      <form id="passwordForm" method="dialog">
         <h2>Secret Cupid controls</h2>
-        <input id="passwordInput" type="password" placeholder="Password" autocomplete="off">
+        <input id="passwordInput" type="password" placeholder="Password" autocomplete="off" aria-label="Admin password">
         <p id="passwordError" class="password-error"></p>
         <div class="dialog-buttons">
           <button id="cancelPassword" type="button" class="secondary-btn">Cancel</button>
@@ -161,7 +182,7 @@
       </form>
     </dialog>
 
-    <div id="confetti" class="confetti"></div>
+    <div id="confetti" class="confetti" aria-hidden="true"></div>
   </main>
 
   <script src="script.js"></script>

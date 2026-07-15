@@ -1,5 +1,8 @@
+'use strict';
+
 const PASSWORD = 'Jukian84!';
-const STORAGE_KEY = 'girlfriendPrizeWheelState.v1';
+const STORAGE_KEY = 'girlfriendPrizeWheelState.v2';
+const LEGACY_STORAGE_KEY = 'girlfriendPrizeWheelState.v1';
 
 const DEFAULT_PRIZES = [
   { name: 'Takeaway & Movie Night', line: 'Home date night. Your favourite takeaway, a film, and zero judgement for blanket hogging.' },
@@ -10,7 +13,7 @@ const DEFAULT_PRIZES = [
   { name: '3 Free Massages', line: 'Terms: I may sigh dramatically, but service will be delivered.' },
   { name: 'Breakfast in Bed', line: 'Crumbs included at no extra charge.' },
   { name: 'Coffee Walk Date', line: 'A stroll, caffeine, and pretending we are outdoorsy influencers.' },
-  { name: 'No-Phone Dinner', line: 'Just us. The internet can survive without our nonsense for one meal.' },
+  { name: 'Arcade Date', line: 'Loser buys the ice cream.' },
   { name: 'You Pick The Movie', line: 'No complaints. Even if it has subtitles, dragons, or feelings.' },
   { name: 'Cocktail Night', line: 'Homemade cocktails. Professional garnish confidence, amateur measurements.' },
   { name: 'Sunset Date', line: 'Golden hour romance. Wind hair chaos likely.' },
@@ -29,60 +32,152 @@ const DEFAULT_PRIZES = [
   { name: 'Board Games & Snacks', line: 'Cute night. Competitive behaviour may occur.' }
 ];
 
+const DEFAULT_STATE = {
+  adminSettings: { unlimited: true, monthlyLock: false },
+  customPrizes: null,
+  ticketHistory: []
+};
+
+const $ = id => document.getElementById(id);
+
+const dom = {
+  canvas: $('wheelCanvas'),
+  littleMan: $('littleMan'),
+  speechBubble: document.querySelector('.speech-bubble'),
+  statusText: $('statusText'),
+  modeLabel: $('modeLabel'),
+  ticket: $('ticket'),
+  prizeName: $('prizeName'),
+  prizeLine: $('prizeLine'),
+  closeTicket: $('closeTicket'),
+  claimedTicketDetails: $('claimedTicketDetails'),
+  claimedPrizeName: $('claimedPrizeName'),
+  claimedDate: $('claimedDate'),
+  expiryDate: $('expiryDate'),
+  ticketCode: $('ticketCode'),
+  saveTicketPhoto: $('saveTicketPhoto'),
+  saveTicketHint: $('saveTicketHint'),
+  lockedCard: $('lockedCard'),
+  lockedMessage: $('lockedMessage'),
+  lastPrizeText: $('lastPrizeText'),
+  adminPanel: $('adminPanel'),
+  passwordDialog: $('passwordDialog'),
+  passwordForm: $('passwordForm'),
+  passwordInput: $('passwordInput'),
+  passwordError: $('passwordError'),
+  secretHeart: $('secretHeart'),
+  titleTap: $('titleTap'),
+  confetti: $('confetti'),
+  closeAdmin: $('closeAdmin'),
+  unlimitedToggle: $('unlimitedToggle'),
+  monthlyLockToggle: $('monthlyLockToggle'),
+  forcePrizeSelect: $('forcePrizeSelect'),
+  previewTicket: $('previewTicket'),
+  viewHistory: $('viewHistory'),
+  historyPanel: $('historyPanel'),
+  historyList: $('historyList'),
+  clearHistory: $('clearHistory'),
+  resetAll: $('resetAll'),
+  adminStatus: $('adminStatus'),
+  cancelPassword: $('cancelPassword'),
+  prizeEditorList: $('prizeEditorList'),
+  addPrize: $('addPrize'),
+  savePrizes: $('savePrizes'),
+  restorePrizes: $('restorePrizes'),
+  testSpin: $('testSpin'),
+  resetSpin: $('resetSpin'),
+  forceAvailable: $('forceAvailable')
+};
+
+const missing = Object.entries(dom).filter(([, value]) => !value).map(([key]) => key);
+if (missing.length) throw new Error(`Missing required UI elements: ${missing.join(', ')}`);
+
+const ctx = dom.canvas.getContext('2d');
+let state = loadState();
+let prizes = normalisePrizeList(state.customPrizes) || clonePrizes(DEFAULT_PRIZES);
+let rotation = 0;
+let spinning = false;
+let forcedPrizeIndex = null;
+let currentPrize = null;
+let titleTapCount = 0;
+let drag = null;
+let editorDraft = clonePrizes(prizes);
+
+function clonePrizes(list) {
+  return list.map(prize => ({ name: prize.name, line: prize.line }));
+}
+
+function safeParse(value) {
+  try { return value ? JSON.parse(value) : null; }
+  catch { return null; }
+}
+
+function migratePrize(prize) {
+  if (!prize || typeof prize !== 'object') return null;
+  const originalName = String(prize.name || '').trim();
+  const originalLine = String(prize.line || '').trim();
+  const lower = originalName.toLowerCase();
+
+  if (lower.includes('fish') && lower.includes('movie')) {
+    return { name: 'Takeaway & Movie Night', line: DEFAULT_PRIZES[0].line };
+  }
+  if (lower === 'no-phone dinner' || lower === 'no phone dinner') {
+    return { name: 'Arcade Date', line: 'Loser buys the ice cream.' };
+  }
+  if (lower === 'surprise flowers') {
+    return { name: 'Choose Our Next Date', line: 'You pick the next date idea and Cupid will make it happen.' };
+  }
+  return originalName ? { name: originalName, line: originalLine } : null;
+}
+
 function normalisePrizeList(value) {
   if (!Array.isArray(value)) return null;
-  const cleaned = value.map(item => ({
-    name: String(item?.name || '').trim(),
-    line: String(item?.line || '').trim()
-  })).filter(item => item.name);
+  const seen = new Set();
+  const cleaned = value
+    .map(migratePrize)
+    .filter(Boolean)
+    .filter(prize => {
+      const key = prize.name.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   return cleaned.length >= 2 ? cleaned : null;
 }
 
-let prizes = normalisePrizeList(loadState().customPrizes) || DEFAULT_PRIZES.map(prize => ({ ...prize }));
-
-const canvas = document.getElementById('wheelCanvas');
-const ctx = canvas.getContext('2d');
-const littleMan = document.getElementById('littleMan');
-const statusText = document.getElementById('statusText');
-const ticket = document.getElementById('ticket');
-const prizeName = document.getElementById('prizeName');
-const prizeLine = document.getElementById('prizeLine');
-const closeTicket = document.getElementById('closeTicket');
-const claimedTicketDetails = document.getElementById('claimedTicketDetails');
-const claimedPrizeName = document.getElementById('claimedPrizeName');
-const claimedDate = document.getElementById('claimedDate');
-const expiryDate = document.getElementById('expiryDate');
-const ticketCode = document.getElementById('ticketCode');
-const saveTicketPhoto = document.getElementById('saveTicketPhoto');
-const saveTicketHint = document.getElementById('saveTicketHint');
-const lockedCard = document.getElementById('lockedCard');
-const lockedMessage = document.getElementById('lockedMessage');
-const lastPrizeText = document.getElementById('lastPrizeText');
-const adminPanel = document.getElementById('adminPanel');
-const passwordDialog = document.getElementById('passwordDialog');
-const passwordForm = document.getElementById('passwordForm');
-const passwordInput = document.getElementById('passwordInput');
-const passwordError = document.getElementById('passwordError');
-const secretHeart = document.getElementById('secretHeart');
-const titleTap = document.getElementById('titleTap');
-const confetti = document.getElementById('confetti');
-
-let rotation = 0;
-let spinning = false;
-let testMode = Boolean(loadState().adminSettings?.unlimited);
-let monthlyLockEnabled = loadState().adminSettings?.monthlyLock ?? false;
-let forcedPrizeIndex = null
-let titleTapCount = 0;
-let drag = null;
-let currentPrize = null;
-
 function loadState() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; }
-  catch { return {}; }
+  const current = safeParse(localStorage.getItem(STORAGE_KEY));
+  if (current) {
+    return {
+      ...DEFAULT_STATE,
+      ...current,
+      adminSettings: { ...DEFAULT_STATE.adminSettings, ...(current.adminSettings || {}) },
+      customPrizes: normalisePrizeList(current.customPrizes),
+      lastPrize: migratePrize(current.lastPrize),
+      ticketHistory: Array.isArray(current.ticketHistory) ? current.ticketHistory : []
+    };
+  }
+
+  const legacy = safeParse(localStorage.getItem(LEGACY_STORAGE_KEY)) || {};
+  const migrated = {
+    ...DEFAULT_STATE,
+    customPrizes: normalisePrizeList(legacy.customPrizes),
+    ticketHistory: Array.isArray(legacy.ticketHistory) ? legacy.ticketHistory : [],
+    history: Array.isArray(legacy.history) ? legacy.history : []
+  };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
+  return migrated;
 }
 
-function saveState(next) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...loadState(), ...next }));
+function saveState(patch) {
+  state = {
+    ...state,
+    ...patch,
+    adminSettings: patch.adminSettings
+      ? { ...state.adminSettings, ...patch.adminSettings }
+      : state.adminSettings
+  };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
 function monthKey(date = new Date()) {
@@ -95,16 +190,34 @@ function nextMonthText() {
   return next.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
 }
 
-function hasSpunThisMonth() {
-  return monthlyLockEnabled && loadState().lastSpinMonth === monthKey();
+function isUnlimited() { return Boolean(state.adminSettings.unlimited); }
+function isMonthlyLockEnabled() { return Boolean(state.adminSettings.monthlyLock); }
+function hasSpunThisMonth() { return isMonthlyLockEnabled() && state.lastSpinMonth === monthKey(); }
+
+function updateModeCopy() {
+  dom.modeLabel.textContent = isUnlimited() ? 'Unlimited testing chaos' : 'Cupid’s monthly surprise';
+}
+
+function ensureCanvasSize() {
+  const rect = dom.canvas.getBoundingClientRect();
+  const cssSize = Math.max(280, Math.round(rect.width || dom.canvas.parentElement?.clientWidth || 360));
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const pixelSize = Math.round(cssSize * dpr);
+  if (dom.canvas.width !== pixelSize || dom.canvas.height !== pixelSize) {
+    dom.canvas.width = pixelSize;
+    dom.canvas.height = pixelSize;
+  }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return cssSize;
 }
 
 function drawWheel() {
-  const size = canvas.width;
+  if (!prizes.length) return;
+  const size = ensureCanvasSize();
   const cx = size / 2;
   const cy = size / 2;
-  const radius = size * 0.46;
-  const slice = (Math.PI * 2) / prizes.length;
+  const radius = size * .455;
+  const slice = Math.PI * 2 / prizes.length;
   const colours = ['#ff7aa8', '#ffd166', '#8bd3ff', '#b8f2c2', '#f7a8ff', '#fff2a8'];
 
   ctx.clearRect(0, 0, size, size);
@@ -112,308 +225,45 @@ function drawWheel() {
   ctx.translate(cx, cy);
   ctx.rotate(rotation);
 
-  prizes.forEach((prize, i) => {
-    const start = i * slice;
+  prizes.forEach((prize, index) => {
+    const start = index * slice;
     ctx.beginPath();
     ctx.moveTo(0, 0);
     ctx.arc(0, 0, radius, start, start + slice);
     ctx.closePath();
-    ctx.fillStyle = colours[i % colours.length];
+    ctx.fillStyle = colours[index % colours.length];
     ctx.fill();
     ctx.strokeStyle = '#34212a';
-    ctx.lineWidth = 5;
+    ctx.lineWidth = Math.max(2.5, size * .007);
     ctx.stroke();
 
     ctx.save();
     ctx.rotate(start + slice / 2);
     ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
     ctx.fillStyle = '#34212a';
-    ctx.font = '800 25px system-ui, sans-serif';
-    wrapText(prize.name, radius - 24, 8, 145, 24);
+    const fontSize = Math.max(10, Math.min(17, size / 28));
+    ctx.font = `850 ${fontSize}px system-ui, sans-serif`;
+    drawSliceLabel(prize.name, radius - size * .035, 0, radius * .36, fontSize * 1.05);
     ctx.restore();
   });
 
   ctx.beginPath();
-  ctx.arc(0, 0, 70, 0, Math.PI * 2);
+  ctx.arc(0, 0, size * .088, 0, Math.PI * 2);
   ctx.fillStyle = '#fff8ed';
   ctx.fill();
-  ctx.lineWidth = 7;
+  ctx.lineWidth = Math.max(4, size * .01);
   ctx.strokeStyle = '#34212a';
   ctx.stroke();
-  ctx.font = '900 38px system-ui';
+  ctx.fillStyle = '#34212a';
+  ctx.font = `900 ${Math.max(25, size * .055)}px system-ui`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText('♥', 0, 2);
   ctx.restore();
 }
 
-function wrapText(text, x, y, maxWidth, lineHeight) {
-  const words = text.split(' ');
-  let line = '';
-  let lines = [];
-  for (const word of words) {
-    const test = line ? `${line} ${word}` : word;
-    if (ctx.measureText(test).width > maxWidth && line) {
-      lines.push(line);
-      line = word;
-    } else line = test;
-  }
-  lines.push(line);
-  lines.slice(0, 2).forEach((l, idx) => ctx.fillText(l, x, y + idx * lineHeight));
-}
-
-function setLockedView() {
-  const state = loadState();
-  if (!hasSpunThisMonth() || testMode) {
-    lockedCard.classList.add('hidden');
-    return;
-  }
-  lockedMessage.textContent = `Nice try. Cupid says come back on ${nextMonthText()}.`;
-  lastPrizeText.textContent = state.lastPrize ? `Last prize: ${state.lastPrize.name}` : '';
-  lockedCard.classList.remove('hidden');
-  statusText.textContent = 'The monthly romance economy is currently closed.';
-}
-
-function spinWheel(force = false) {
-  if (spinning) return;
-  if (!force && !testMode && hasSpunThisMonth()) {
-    setLockedView();
-    wobbleMan();
-    return;
-  }
-
-  spinning = true;
-  lockedCard.classList.add('hidden');
-  ticket.classList.add('hidden');
-  statusText.textContent = 'Spinning. Romance bureaucracy in progress.';
-  vibrate(20);
-
-  const winningIndex = Number.isInteger(forcedPrizeIndex) ? forcedPrizeIndex : Math.floor(Math.random() * prizes.length);
-  forcedPrizeIndex = null;
-  const slice = (Math.PI * 2) / prizes.length;
-  const pointerAngle = -Math.PI / 2;
-  const targetAngle = pointerAngle - (winningIndex * slice + slice / 2);
-  const extraTurns = (Math.PI * 2) * (5 + Math.floor(Math.random() * 3));
-  const startRotation = rotation;
-  const endRotation = startRotation + extraTurns + normalizeAngle(targetAngle - startRotation);
-  const duration = 4300;
-  const startTime = performance.now();
-
-  function animate(now) {
-    const t = Math.min(1, (now - startTime) / duration);
-    const eased = 1 - Math.pow(1 - t, 4);
-    rotation = startRotation + (endRotation - startRotation) * eased;
-    drawWheel();
-
-    if (t < 1) requestAnimationFrame(animate);
-    else {
-      rotation = endRotation % (Math.PI * 2);
-      drawWheel();
-      revealPrize(winningIndex);
-      spinning = false;
-    }
-  }
-
-  requestAnimationFrame(animate);
-}
-
-function normalizeAngle(angle) {
-  const twoPi = Math.PI * 2;
-  while (angle < 0) angle += twoPi;
-  while (angle >= twoPi) angle -= twoPi;
-  return angle;
-}
-
-function revealPrize(index) {
-  const prize = prizes[index];
-  currentPrize = prize;
-  claimedTicketDetails.classList.add('hidden');
-  closeTicket.textContent = 'Claim ticket';
-  prizeName.textContent = prize.name;
-  prizeLine.textContent = prize.line;
-  ticket.classList.remove('hidden');
-  burstConfetti();
-  vibrate([30, 50, 30]);
-
-  if (!testMode) {
-    saveState({
-      lastSpinDate: new Date().toISOString(),
-      lastSpinMonth: monthKey(),
-      lastPrize: prize,
-      history: [...(loadState().history || []), { date: new Date().toISOString(), prize }].slice(-24)
-    });
-  }
-  statusText.textContent = 'Ticket issued. Romance law is binding.';
-}
-
-function burstConfetti() {
-  confetti.innerHTML = '';
-  const colours = ['#ff7aa8', '#ffd166', '#8bd3ff', '#b8f2c2', '#f7a8ff'];
-  for (let i = 0; i < 90; i++) {
-    const piece = document.createElement('span');
-    piece.className = 'confetti-piece';
-    piece.style.left = `${Math.random() * 100}%`;
-    piece.style.top = `${-10 - Math.random() * 30}px`;
-    piece.style.background = colours[i % colours.length];
-    piece.style.animationDelay = `${Math.random() * .25}s`;
-    piece.style.transform = `rotate(${Math.random() * 360}deg)`;
-    confetti.appendChild(piece);
-  }
-  setTimeout(() => confetti.innerHTML = '', 2300);
-}
-
-function vibrate(pattern) {
-  if ('vibrate' in navigator) navigator.vibrate(pattern);
-}
-
-function wobbleMan() {
-  littleMan.animate([
-    { transform: 'rotate(0deg)' },
-    { transform: 'rotate(-12deg)' },
-    { transform: 'rotate(12deg)' },
-    { transform: 'rotate(0deg)' }
-  ], { duration: 420, easing: 'ease-in-out' });
-}
-
-function resetMan() {
-  littleMan.style.position = '';
-  littleMan.style.left = '';
-  littleMan.style.top = '';
-  littleMan.style.transform = '';
-  littleMan.classList.remove('dragging', 'flying');
-}
-
-function rectsOverlap(a, b) {
-  return !(a.right < b.left || a.left > b.right || a.bottom < b.top || a.top > b.bottom);
-}
-
-littleMan.addEventListener('pointerdown', (event) => {
-  if (spinning) return;
-  littleMan.setPointerCapture(event.pointerId);
-  const r = littleMan.getBoundingClientRect();
-  drag = {
-    pointerId: event.pointerId,
-    offsetX: event.clientX - r.left,
-    offsetY: event.clientY - r.top,
-    lastX: event.clientX,
-    lastY: event.clientY,
-    vx: 0,
-    vy: 0,
-    lastT: performance.now()
-  };
-  littleMan.classList.add('dragging');
-  littleMan.style.position = 'fixed';
-  littleMan.style.left = `${r.left}px`;
-  littleMan.style.top = `${r.top}px`;
-});
-
-littleMan.addEventListener('pointermove', (event) => {
-  if (!drag || event.pointerId !== drag.pointerId) return;
-  const now = performance.now();
-  const dt = Math.max(16, now - drag.lastT);
-  drag.vx = (event.clientX - drag.lastX) / dt;
-  drag.vy = (event.clientY - drag.lastY) / dt;
-  drag.lastX = event.clientX;
-  drag.lastY = event.clientY;
-  drag.lastT = now;
-  littleMan.style.left = `${event.clientX - drag.offsetX}px`;
-  littleMan.style.top = `${event.clientY - drag.offsetY}px`;
-});
-
-littleMan.addEventListener('pointerup', (event) => {
-  if (!drag || event.pointerId !== drag.pointerId) return;
-  const start = littleMan.getBoundingClientRect();
-  littleMan.classList.remove('dragging');
-  littleMan.classList.add('flying');
-
-  const wheel = canvas.getBoundingClientRect();
-  const wheelCenterX = wheel.left + wheel.width / 2;
-  const wheelCenterY = wheel.top + wheel.height / 2;
-  const manCenterX = start.left + start.width / 2;
-  const manCenterY = start.top + start.height / 2;
-  const dx = wheelCenterX - manCenterX;
-  const dy = wheelCenterY - manCenterY;
-
-  const velocityBoost = Math.min(1.4, Math.hypot(drag.vx, drag.vy) * 0.26);
-  const endX = start.left + dx * (0.82 + velocityBoost * 0.12);
-  const endY = start.top + dy * (0.82 + velocityBoost * 0.12);
-
-  littleMan.animate([
-    { left: `${start.left}px`, top: `${start.top}px`, transform: 'rotate(0deg) scale(1)' },
-    { left: `${endX}px`, top: `${endY}px`, transform: 'rotate(380deg) scale(.92)' }
-  ], { duration: 620, easing: 'cubic-bezier(.2,.8,.2,1)' }).onfinish = () => {
-    littleMan.style.left = `${endX}px`;
-    littleMan.style.top = `${endY}px`;
-    const hit = rectsOverlap(littleMan.getBoundingClientRect(), canvas.getBoundingClientRect());
-    if (hit) {
-      statusText.textContent = 'Direct hit. Cupid has fulfilled his tiny romantic destiny.';
-      spinWheel();
-    } else {
-      statusText.textContent = 'Missed it. Even romance needs aim.';
-      wobbleMan();
-    }
-    setTimeout(resetMan, hit ? 450 : 700);
-  };
-  drag = null;
-});
-
-closeTicket.addEventListener('click', () => {
-  if (!currentPrize) return;
-
-  if (claimedTicketDetails.classList.contains('hidden')) {
-    const claimedAt = new Date();
-    const expiresAt = new Date(claimedAt);
-    expiresAt.setDate(expiresAt.getDate() + 31);
-    const formatDate = (date) => date.toLocaleDateString(undefined, {
-      weekday: 'short', day: 'numeric', month: 'short', year: 'numeric'
-    });
-    const code = `LOVE-${claimedAt.getFullYear()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
-
-    claimedPrizeName.textContent = currentPrize.name;
-    claimedDate.textContent = formatDate(claimedAt);
-    expiryDate.textContent = formatDate(expiresAt);
-    ticketCode.textContent = code;
-    claimedTicketDetails.classList.remove('hidden');
-    saveTicketPhoto.textContent = 'Download ticket photo';
-    saveTicketHint.textContent = 'Downloads straight to your device as a PNG image.';
-    closeTicket.textContent = 'Done';
-    const claimedTicket = {
-      prize: currentPrize,
-      claimedAt: claimedAt.toISOString(),
-      expiresAt: expiresAt.toISOString(),
-      code
-    };
-    const state = loadState();
-    saveState({
-      lastClaimedTicket: claimedTicket,
-      ticketHistory: [claimedTicket, ...(state.ticketHistory || [])].slice(0, 50)
-    });
-    statusText.textContent = 'Ticket claimed. It expires in 31 days, so no strategic hoarding.';
-    burstConfetti();
-    vibrate([25, 40, 25]);
-    return;
-  }
-
-  ticket.classList.add('hidden');
-  claimedTicketDetails.classList.add('hidden');
-  closeTicket.textContent = 'Claim ticket';
-  currentPrize = null;
-  setLockedView();
-});
-
-
-function roundedRect(ctx, x, y, width, height, radius) {
-  const r = Math.min(radius, width / 2, height / 2);
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + width, y, x + width, y + height, r);
-  ctx.arcTo(x + width, y + height, x, y + height, r);
-  ctx.arcTo(x, y + height, x, y, r);
-  ctx.arcTo(x, y, x + width, y, r);
-  ctx.closePath();
-}
-
-function wrapCanvasText(ctx, text, maxWidth) {
+function drawSliceLabel(text, x, y, maxWidth, lineHeight) {
   const words = text.split(/\s+/);
   const lines = [];
   let line = '';
@@ -427,401 +277,657 @@ function wrapCanvasText(ctx, text, maxWidth) {
     }
   }
   if (line) lines.push(line);
+  const visible = lines.slice(0, 2);
+  const offset = (visible.length - 1) * lineHeight / 2;
+  visible.forEach((item, index) => ctx.fillText(item, x, y + index * lineHeight - offset));
+}
+
+function setLockedView() {
+  updateModeCopy();
+  if (!hasSpunThisMonth() || isUnlimited()) {
+    dom.lockedCard.classList.add('hidden');
+    if (!spinning && dom.ticket.classList.contains('hidden')) {
+      dom.statusText.textContent = 'Throw Cupid at the wheel to reveal your prize.';
+    }
+    return;
+  }
+
+  dom.lockedMessage.textContent = `Cupid says come back on ${nextMonthText()}.`;
+  dom.lastPrizeText.textContent = state.lastPrize?.name ? `Last prize: ${state.lastPrize.name}` : '';
+  dom.lockedCard.classList.remove('hidden');
+  dom.statusText.textContent = 'The wheel is still here, but the next official spin opens next month.';
+}
+
+function normalizeAngle(angle) {
+  const twoPi = Math.PI * 2;
+  while (angle < 0) angle += twoPi;
+  while (angle >= twoPi) angle -= twoPi;
+  return angle;
+}
+
+function spinWheel(force = false) {
+  if (spinning) return;
+  if (!force && !isUnlimited() && hasSpunThisMonth()) {
+    setLockedView();
+    wobbleCupid();
+    return;
+  }
+
+  spinning = true;
+  dom.ticket.classList.add('hidden');
+  dom.lockedCard.classList.add('hidden');
+  dom.statusText.textContent = 'Spinning. Romance bureaucracy in progress.';
+  vibrate(20);
+
+  const winningIndex = Number.isInteger(forcedPrizeIndex)
+    ? Math.min(forcedPrizeIndex, prizes.length - 1)
+    : Math.floor(Math.random() * prizes.length);
+  forcedPrizeIndex = null;
+
+  const slice = Math.PI * 2 / prizes.length;
+  const pointerAngle = -Math.PI / 2;
+  const targetAngle = pointerAngle - (winningIndex * slice + slice / 2);
+  const startRotation = rotation;
+  const endRotation = startRotation + Math.PI * 2 * (5 + Math.floor(Math.random() * 3)) + normalizeAngle(targetAngle - startRotation);
+  const duration = 4200;
+  const startTime = performance.now();
+
+  function animate(now) {
+    const progress = Math.min(1, (now - startTime) / duration);
+    const eased = 1 - Math.pow(1 - progress, 4);
+    rotation = startRotation + (endRotation - startRotation) * eased;
+    drawWheel();
+    if (progress < 1) {
+      requestAnimationFrame(animate);
+    } else {
+      rotation = endRotation % (Math.PI * 2);
+      drawWheel();
+      spinning = false;
+      revealPrize(winningIndex);
+    }
+  }
+  requestAnimationFrame(animate);
+}
+
+function revealPrize(index) {
+  const prize = prizes[index];
+  if (!prize) return;
+  currentPrize = { ...prize };
+  dom.claimedTicketDetails.classList.add('hidden');
+  dom.closeTicket.textContent = 'Claim ticket';
+  dom.prizeName.textContent = prize.name;
+  dom.prizeLine.textContent = prize.line;
+  dom.ticket.classList.remove('hidden');
+  burstConfetti();
+  vibrate([30, 50, 30]);
+
+  if (!isUnlimited()) {
+    const spinRecord = { date: new Date().toISOString(), prize: { ...prize } };
+    saveState({
+      lastSpinDate: spinRecord.date,
+      lastSpinMonth: monthKey(),
+      lastPrize: { ...prize },
+      history: [...(Array.isArray(state.history) ? state.history : []), spinRecord].slice(-24)
+    });
+  }
+  dom.statusText.textContent = 'Ticket issued. Romance law is binding.';
+}
+
+function vibrate(pattern) {
+  if ('vibrate' in navigator) navigator.vibrate(pattern);
+}
+
+function wobbleCupid() {
+  dom.littleMan.animate([
+    { transform: 'rotate(0deg)' },
+    { transform: 'rotate(-11deg)' },
+    { transform: 'rotate(11deg)' },
+    { transform: 'rotate(0deg)' }
+  ], { duration: 420, easing: 'ease-in-out' });
+}
+
+function resetCupid() {
+  dom.littleMan.style.position = '';
+  dom.littleMan.style.left = '';
+  dom.littleMan.style.top = '';
+  dom.littleMan.style.transform = '';
+  dom.littleMan.classList.remove('dragging', 'flying');
+  dom.speechBubble.textContent = 'Throw me!';
+}
+
+function startCupidDrag(event) {
+  if (spinning || event.button > 0) return;
+  const rect = dom.littleMan.getBoundingClientRect();
+  dom.littleMan.setPointerCapture?.(event.pointerId);
+  drag = {
+    pointerId: event.pointerId,
+    offsetX: event.clientX - rect.left,
+    offsetY: event.clientY - rect.top,
+    lastX: event.clientX,
+    lastY: event.clientY,
+    lastT: performance.now(),
+    vx: 0,
+    vy: 0
+  };
+  dom.littleMan.classList.add('dragging');
+  dom.littleMan.style.position = 'fixed';
+  dom.littleMan.style.left = `${rect.left}px`;
+  dom.littleMan.style.top = `${rect.top}px`;
+  dom.speechBubble.textContent = 'Wheeeee!';
+  event.preventDefault();
+}
+
+function moveCupid(event) {
+  if (!drag || event.pointerId !== drag.pointerId) return;
+  const now = performance.now();
+  const dt = Math.max(16, now - drag.lastT);
+  drag.vx = (event.clientX - drag.lastX) / dt;
+  drag.vy = (event.clientY - drag.lastY) / dt;
+  drag.lastX = event.clientX;
+  drag.lastY = event.clientY;
+  drag.lastT = now;
+  dom.littleMan.style.left = `${event.clientX - drag.offsetX}px`;
+  dom.littleMan.style.top = `${event.clientY - drag.offsetY}px`;
+  event.preventDefault();
+}
+
+function releaseCupid(event) {
+  if (!drag || event.pointerId !== drag.pointerId) return;
+  const start = dom.littleMan.getBoundingClientRect();
+  const wheel = dom.canvas.getBoundingClientRect();
+  dom.littleMan.classList.remove('dragging');
+  dom.littleMan.classList.add('flying');
+
+  const endLeft = wheel.left + wheel.width / 2 - start.width / 2;
+  const endTop = wheel.top + wheel.height / 2 - start.height / 2;
+  const animation = dom.littleMan.animate([
+    { left: `${start.left}px`, top: `${start.top}px`, transform: 'rotate(0deg) scale(1)' },
+    { left: `${endLeft}px`, top: `${endTop}px`, transform: 'rotate(380deg) scale(.88)' }
+  ], { duration: 620, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'forwards' });
+
+  animation.onfinish = () => {
+    dom.statusText.textContent = 'BONK! Cupid has fulfilled his tiny romantic destiny.';
+    spinWheel();
+    setTimeout(resetCupid, 500);
+  };
+  drag = null;
+  event.preventDefault();
+}
+
+function cancelCupid(event) {
+  if (!drag || event.pointerId !== drag.pointerId) return;
+  drag = null;
+  resetCupid();
+}
+
+function burstConfetti() {
+  dom.confetti.innerHTML = '';
+  const colours = ['#ff7aa8', '#ffd166', '#8bd3ff', '#b8f2c2', '#f7a8ff'];
+  for (let index = 0; index < 80; index += 1) {
+    const piece = document.createElement('span');
+    piece.className = 'confetti-piece';
+    piece.style.left = `${Math.random() * 100}%`;
+    piece.style.top = `${-10 - Math.random() * 30}px`;
+    piece.style.background = colours[index % colours.length];
+    piece.style.animationDelay = `${Math.random() * .28}s`;
+    dom.confetti.appendChild(piece);
+  }
+  setTimeout(() => { dom.confetti.innerHTML = ''; }, 2400);
+}
+
+function formatDate(date) {
+  return date.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function claimTicket() {
+  if (!currentPrize) return;
+  if (!dom.claimedTicketDetails.classList.contains('hidden')) {
+    dom.ticket.classList.add('hidden');
+    dom.claimedTicketDetails.classList.add('hidden');
+    dom.closeTicket.textContent = 'Claim ticket';
+    currentPrize = null;
+    setLockedView();
+    return;
+  }
+
+  const claimedAt = new Date();
+  const expiresAt = new Date(claimedAt);
+  expiresAt.setDate(expiresAt.getDate() + 31);
+  const code = `LOVE-${claimedAt.getFullYear()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
+  const claimedTicket = {
+    prize: { ...currentPrize },
+    claimedAt: claimedAt.toISOString(),
+    expiresAt: expiresAt.toISOString(),
+    code
+  };
+
+  dom.claimedPrizeName.textContent = currentPrize.name;
+  dom.claimedDate.textContent = formatDate(claimedAt);
+  dom.expiryDate.textContent = formatDate(expiresAt);
+  dom.ticketCode.textContent = code;
+  dom.claimedTicketDetails.classList.remove('hidden');
+  dom.closeTicket.textContent = 'Done';
+  dom.saveTicketPhoto.textContent = 'Download ticket photo';
+  dom.saveTicketHint.textContent = 'Downloads straight to your device as a PNG image.';
+  saveState({
+    lastClaimedTicket: claimedTicket,
+    ticketHistory: [claimedTicket, ...(Array.isArray(state.ticketHistory) ? state.ticketHistory : [])].slice(0, 50)
+  });
+  dom.statusText.textContent = 'Ticket claimed. It expires in 31 days, so no strategic hoarding.';
+  burstConfetti();
+}
+
+function roundedRect(context, x, y, width, height, radius) {
+  const r = Math.min(radius, width / 2, height / 2);
+  context.beginPath();
+  context.moveTo(x + r, y);
+  context.arcTo(x + width, y, x + width, y + height, r);
+  context.arcTo(x + width, y + height, x, y + height, r);
+  context.arcTo(x, y + height, x, y, r);
+  context.arcTo(x, y, x + width, y, r);
+  context.closePath();
+}
+
+function wrapCanvasText(context, text, maxWidth) {
+  const words = text.split(/\s+/);
+  const lines = [];
+  let line = '';
+  for (const word of words) {
+    const test = line ? `${line} ${word}` : word;
+    if (context.measureText(test).width > maxWidth && line) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = test;
+    }
+  }
+  if (line) lines.push(line);
   return lines;
 }
 
 function buildTicketImageBlob() {
-  const canvas = document.createElement('canvas');
-  canvas.width = 1200;
-  canvas.height = 1600;
-  const ctx = canvas.getContext('2d');
-
-  const gradient = ctx.createLinearGradient(0, 0, 1200, 1600);
+  const imageCanvas = document.createElement('canvas');
+  imageCanvas.width = 1200;
+  imageCanvas.height = 1600;
+  const imageCtx = imageCanvas.getContext('2d');
+  const gradient = imageCtx.createLinearGradient(0, 0, 1200, 1600);
   gradient.addColorStop(0, '#ffe8f0');
   gradient.addColorStop(1, '#fff7dc');
-  ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-  ctx.fillStyle = '#fff8ed';
-  ctx.strokeStyle = '#34212a';
-  ctx.lineWidth = 12;
-  roundedRect(ctx, 90, 110, 1020, 1380, 58);
-  ctx.fill();
-  ctx.stroke();
-
-  ctx.fillStyle = '#ff4f8b';
-  ctx.font = '900 42px system-ui, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('YOU HAVE WON', 600, 250);
-
-  ctx.fillStyle = '#34212a';
-  ctx.font = '900 82px system-ui, sans-serif';
-  const prizeLines = wrapCanvasText(ctx, claimedPrizeName.textContent, 850);
+  imageCtx.fillStyle = gradient;
+  imageCtx.fillRect(0, 0, 1200, 1600);
+  imageCtx.fillStyle = '#fff8ed';
+  imageCtx.strokeStyle = '#34212a';
+  imageCtx.lineWidth = 12;
+  roundedRect(imageCtx, 90, 110, 1020, 1380, 58);
+  imageCtx.fill();
+  imageCtx.stroke();
+  imageCtx.fillStyle = '#ff4f8b';
+  imageCtx.font = '900 42px system-ui, sans-serif';
+  imageCtx.textAlign = 'center';
+  imageCtx.fillText('YOU HAVE WON', 600, 250);
+  imageCtx.fillStyle = '#34212a';
+  imageCtx.font = '900 82px system-ui, sans-serif';
+  const prizeLines = wrapCanvasText(imageCtx, dom.claimedPrizeName.textContent, 850);
   let y = 390;
-  prizeLines.forEach(line => {
-    ctx.fillText(line, 600, y);
-    y += 92;
-  });
-
-  ctx.strokeStyle = '#745864';
-  ctx.lineWidth = 5;
-  ctx.setLineDash([18, 14]);
-  ctx.beginPath();
-  ctx.moveTo(170, y + 30);
-  ctx.lineTo(1030, y + 30);
-  ctx.stroke();
-  ctx.setLineDash([]);
-
+  prizeLines.forEach(line => { imageCtx.fillText(line, 600, y); y += 92; });
+  imageCtx.strokeStyle = '#745864';
+  imageCtx.lineWidth = 5;
+  imageCtx.setLineDash([18, 14]);
+  imageCtx.beginPath();
+  imageCtx.moveTo(170, y + 30);
+  imageCtx.lineTo(1030, y + 30);
+  imageCtx.stroke();
+  imageCtx.setLineDash([]);
   const detailY = y + 130;
-  ctx.textAlign = 'left';
-  ctx.fillStyle = '#34212a';
-  ctx.font = '700 43px system-ui, sans-serif';
-  ctx.fillText(`Claimed: ${claimedDate.textContent}`, 180, detailY);
-  ctx.fillText(`Valid until: ${expiryDate.textContent}`, 180, detailY + 90);
-
-  ctx.font = '700 38px ui-monospace, monospace';
-  ctx.fillText(`Ticket: ${ticketCode.textContent}`, 180, detailY + 200);
-
-  ctx.textAlign = 'center';
-  ctx.fillStyle = '#745864';
-  ctx.font = '500 34px system-ui, sans-serif';
-  const small = wrapCanvasText(ctx, 'Redeem within 31 days. Excessive smugness is permitted.', 780);
-  let smallY = detailY + 340;
-  small.forEach(line => {
-    ctx.fillText(line, 600, smallY);
-    smallY += 48;
-  });
-
-  ctx.fillStyle = '#ff7aa8';
-  ctx.beginPath();
-  ctx.arc(600, 1315, 74, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = '#34212a';
-  ctx.font = '70px system-ui, sans-serif';
-  ctx.fillText('♥', 600, 1340);
-
-  ctx.fillStyle = '#745864';
-  ctx.font = '600 28px system-ui, sans-serif';
-  ctx.fillText('Girlfriend Prize Wheel', 600, 1430);
-
-  return new Promise(resolve => canvas.toBlob(resolve, 'image/png', 1));
+  imageCtx.textAlign = 'left';
+  imageCtx.fillStyle = '#34212a';
+  imageCtx.font = '700 43px system-ui, sans-serif';
+  imageCtx.fillText(`Claimed: ${dom.claimedDate.textContent}`, 180, detailY);
+  imageCtx.fillText(`Valid until: ${dom.expiryDate.textContent}`, 180, detailY + 90);
+  imageCtx.font = '700 38px ui-monospace, monospace';
+  imageCtx.fillText(`Ticket: ${dom.ticketCode.textContent}`, 180, detailY + 200);
+  imageCtx.textAlign = 'center';
+  imageCtx.fillStyle = '#745864';
+  imageCtx.font = '500 34px system-ui, sans-serif';
+  wrapCanvasText(imageCtx, 'Redeem within 31 days. Excessive smugness is permitted.', 780)
+    .forEach((line, index) => imageCtx.fillText(line, 600, detailY + 340 + index * 48));
+  imageCtx.fillStyle = '#ff7aa8';
+  imageCtx.beginPath();
+  imageCtx.arc(600, 1315, 74, 0, Math.PI * 2);
+  imageCtx.fill();
+  imageCtx.fillStyle = '#34212a';
+  imageCtx.font = '70px system-ui, sans-serif';
+  imageCtx.fillText('♥', 600, 1340);
+  imageCtx.fillStyle = '#745864';
+  imageCtx.font = '600 28px system-ui, sans-serif';
+  imageCtx.fillText('Girlfriend Prize Wheel', 600, 1430);
+  return new Promise(resolve => imageCanvas.toBlob(resolve, 'image/png', 1));
 }
 
 async function saveTicketAsPhoto() {
-  if (!ticketCode.textContent) return;
-  saveTicketPhoto.disabled = true;
-  saveTicketPhoto.textContent = 'Making your ticket...';
+  if (!dom.ticketCode.textContent) return;
+  dom.saveTicketPhoto.disabled = true;
+  dom.saveTicketPhoto.textContent = 'Making your ticket...';
   try {
     const blob = await buildTicketImageBlob();
     if (!blob) throw new Error('Image creation failed');
-    const safePrize = claimedPrizeName.textContent.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-    const fileName = `${safePrize || 'prize'}-ticket.png`;
+    const safePrize = dom.claimedPrizeName.textContent.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = fileName;
-    link.style.display = 'none';
+    link.download = `${safePrize || 'prize'}-ticket.png`;
     document.body.appendChild(link);
     link.click();
     link.remove();
     setTimeout(() => URL.revokeObjectURL(url), 2500);
-    saveTicketHint.textContent = 'Ticket downloaded as a PNG. Check Downloads on your phone or computer.';
-    saveTicketPhoto.textContent = 'Saved. Very official.';
-    vibrate([20, 30, 20]);
-  } catch (error) {
-    if (error && error.name === 'AbortError') {
-      saveTicketHint.textContent = 'Save cancelled. The ticket is still here when you are ready.';
-    } else {
-      saveTicketHint.textContent = 'Could not save automatically. Try again in Chrome or Safari.';
-    }
-    saveTicketPhoto.textContent = 'Download ticket photo';
+    dom.saveTicketHint.textContent = 'Ticket downloaded as a PNG. Check Downloads on your phone or computer.';
+    dom.saveTicketPhoto.textContent = 'Saved. Very official.';
+  } catch {
+    dom.saveTicketHint.textContent = 'Could not save automatically. Try again in Chrome or Safari.';
+    dom.saveTicketPhoto.textContent = 'Download ticket photo';
   } finally {
-    saveTicketPhoto.disabled = false;
+    dom.saveTicketPhoto.disabled = false;
   }
 }
 
-saveTicketPhoto.addEventListener('click', saveTicketAsPhoto);
-
 function openPasswordDialog() {
-  passwordInput.value = '';
-  passwordError.textContent = '';
-  if (typeof passwordDialog.showModal === 'function') passwordDialog.showModal();
-  else passwordDialog.setAttribute('open', '');
-  setTimeout(() => passwordInput.focus(), 50);
+  dom.passwordInput.value = '';
+  dom.passwordError.textContent = '';
+  if (typeof dom.passwordDialog.showModal === 'function') {
+    if (!dom.passwordDialog.open) dom.passwordDialog.showModal();
+  } else {
+    dom.passwordDialog.setAttribute('open', '');
+  }
+  setTimeout(() => dom.passwordInput.focus(), 50);
 }
 
-const closeAdmin = document.getElementById('closeAdmin');
-const unlimitedToggle = document.getElementById('unlimitedToggle');
-const monthlyLockToggle = document.getElementById('monthlyLockToggle');
-const forcePrizeSelect = document.getElementById('forcePrizeSelect');
-const previewTicket = document.getElementById('previewTicket');
-const viewHistory = document.getElementById('viewHistory');
-const historyPanel = document.getElementById('historyPanel');
-const historyList = document.getElementById('historyList');
-const clearHistory = document.getElementById('clearHistory');
-const resetAll = document.getElementById('resetAll');
-const adminStatus = document.getElementById('adminStatus');
-const cancelPassword = document.getElementById('cancelPassword');
-const prizeEditorList = document.getElementById('prizeEditorList');
-const addPrize = document.getElementById('addPrize');
-const savePrizes = document.getElementById('savePrizes');
-const restorePrizes = document.getElementById('restorePrizes');
-
-function saveAdminSettings() {
-  saveState({ adminSettings: { unlimited: testMode, monthlyLock: monthlyLockEnabled } });
+function closePasswordDialog() {
+  if (typeof dom.passwordDialog.close === 'function' && dom.passwordDialog.open) dom.passwordDialog.close();
+  else dom.passwordDialog.removeAttribute('open');
 }
 
 function refreshAdminControls() {
-  unlimitedToggle.checked = testMode;
-  monthlyLockToggle.checked = monthlyLockEnabled;
-  adminStatus.textContent = `${testMode ? 'Unlimited spins on' : 'Unlimited spins off'} · ${monthlyLockEnabled ? 'Monthly lock on' : 'Monthly lock off'}`;
+  dom.unlimitedToggle.checked = isUnlimited();
+  dom.monthlyLockToggle.checked = isMonthlyLockEnabled();
+  dom.adminStatus.textContent = `${isUnlimited() ? 'Unlimited spins on' : 'Unlimited spins off'} · ${isMonthlyLockEnabled() ? 'Monthly lock on' : 'Monthly lock off'}`;
 }
 
 function populatePrizeSelector() {
-  const selected = forcePrizeSelect.value;
-  forcePrizeSelect.innerHTML = '<option value="">Random prize</option>';
+  const selected = dom.forcePrizeSelect.value;
+  dom.forcePrizeSelect.innerHTML = '';
+  const random = document.createElement('option');
+  random.value = '';
+  random.textContent = 'Random prize';
+  dom.forcePrizeSelect.appendChild(random);
   prizes.forEach((prize, index) => {
     const option = document.createElement('option');
     option.value = String(index);
     option.textContent = prize.name;
-    forcePrizeSelect.appendChild(option);
+    dom.forcePrizeSelect.appendChild(option);
   });
-  if ([...forcePrizeSelect.options].some(option => option.value === selected)) forcePrizeSelect.value = selected;
+  if ([...dom.forcePrizeSelect.options].some(option => option.value === selected)) dom.forcePrizeSelect.value = selected;
 }
 
 function renderPrizeEditor() {
-  prizeEditorList.innerHTML = '';
-  prizes.forEach((prize, index) => {
+  dom.prizeEditorList.innerHTML = '';
+  editorDraft.forEach((prize, index) => {
     const row = document.createElement('div');
     row.className = 'prize-editor-row';
-    row.innerHTML = `
-      <div class="prize-editor-number">${index + 1}</div>
-      <div class="prize-editor-fields">
-        <input class="admin-input prize-name-input" type="text" value="${escapeHtml(prize.name)}" aria-label="Prize ${index + 1} name">
-        <textarea class="admin-input prize-line-input" rows="2" aria-label="Prize ${index + 1} description">${escapeHtml(prize.line)}</textarea>
-      </div>
-      <button class="prize-delete-btn" type="button" aria-label="Delete ${escapeHtml(prize.name)}">Delete</button>`;
-    row.querySelector('.prize-delete-btn').addEventListener('click', () => {
-      if (prizes.length <= 2) {
-        adminStatus.textContent = 'Keep at least two prizes so the wheel still has something to do.';
+
+    const number = document.createElement('div');
+    number.className = 'prize-editor-number';
+    number.textContent = String(index + 1);
+
+    const fields = document.createElement('div');
+    fields.className = 'prize-editor-fields';
+
+    const nameInput = document.createElement('input');
+    nameInput.className = 'admin-input prize-name-input';
+    nameInput.type = 'text';
+    nameInput.value = prize.name;
+    nameInput.setAttribute('aria-label', `Prize ${index + 1} name`);
+    nameInput.addEventListener('input', () => { editorDraft[index].name = nameInput.value; });
+
+    const lineInput = document.createElement('textarea');
+    lineInput.className = 'admin-input prize-line-input';
+    lineInput.rows = 2;
+    lineInput.value = prize.line;
+    lineInput.setAttribute('aria-label', `Prize ${index + 1} caption`);
+    lineInput.addEventListener('input', () => { editorDraft[index].line = lineInput.value; });
+
+    const deleteButton = document.createElement('button');
+    deleteButton.className = 'prize-delete-btn';
+    deleteButton.type = 'button';
+    deleteButton.textContent = 'Delete';
+    deleteButton.addEventListener('click', () => {
+      if (editorDraft.length <= 2) {
+        dom.adminStatus.textContent = 'Keep at least two prizes so the wheel still has something to do.';
         return;
       }
-      prizes.splice(index, 1);
+      editorDraft.splice(index, 1);
       renderPrizeEditor();
     });
-    prizeEditorList.appendChild(row);
+
+    fields.append(nameInput, lineInput);
+    row.append(number, fields, deleteButton);
+    dom.prizeEditorList.appendChild(row);
   });
 }
 
-function escapeHtml(value) {
-  return String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[char]));
-}
-
-function readPrizeEditor() {
-  return [...prizeEditorList.querySelectorAll('.prize-editor-row')].map(row => ({
-    name: row.querySelector('.prize-name-input').value.trim(),
-    line: row.querySelector('.prize-line-input').value.trim()
-  })).filter(prize => prize.name);
-}
-
-function applyPrizeChanges(nextPrizes) {
-  const cleaned = normalisePrizeList(nextPrizes);
+function savePrizeChanges() {
+  const cleaned = normalisePrizeList(editorDraft);
   if (!cleaned) {
-    adminStatus.textContent = 'Please keep at least two named prizes.';
-    return false;
+    dom.adminStatus.textContent = 'Please keep at least two named prizes.';
+    return;
   }
-  prizes = cleaned;
+  prizes = clonePrizes(cleaned);
+  editorDraft = clonePrizes(prizes);
   forcedPrizeIndex = null;
-  saveState({ customPrizes: prizes });
+  saveState({ customPrizes: clonePrizes(prizes) });
   populatePrizeSelector();
   renderPrizeEditor();
   drawWheel();
-  adminStatus.textContent = `${prizes.length} prizes saved. The wheel has been updated.`;
-  return true;
-}
-
-function formatAdminDate(value) {
-  if (!value) return 'Unknown date';
-  return new Date(value).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  dom.adminStatus.textContent = `${prizes.length} prizes saved. The wheel updated immediately.`;
 }
 
 function renderHistory() {
-  const history = loadState().ticketHistory || [];
-  historyList.innerHTML = '';
+  const history = Array.isArray(state.ticketHistory) ? state.ticketHistory : [];
+  dom.historyList.innerHTML = '';
   if (!history.length) {
-    historyList.innerHTML = '<p>No claimed tickets yet. Cupid has paperwork to catch up on.</p>';
+    const empty = document.createElement('p');
+    empty.textContent = 'No claimed tickets yet. Cupid has paperwork to catch up on.';
+    dom.historyList.appendChild(empty);
     return;
   }
   history.forEach(item => {
     const row = document.createElement('div');
     row.className = 'history-item';
-    row.innerHTML = `<strong>${item.prize?.name || 'Mystery prize'}</strong><small>Claimed ${formatAdminDate(item.claimedAt)} · Expires ${formatAdminDate(item.expiresAt)}<br>${item.code || ''}</small>`;
-    historyList.appendChild(row);
+    const title = document.createElement('strong');
+    title.textContent = item.prize?.name || 'Mystery prize';
+    const details = document.createElement('small');
+    const claimed = item.claimedAt ? new Date(item.claimedAt).toLocaleDateString() : 'unknown';
+    const expires = item.expiresAt ? new Date(item.expiresAt).toLocaleDateString() : 'unknown';
+    details.textContent = `Claimed ${claimed} · Expires ${expires} · ${item.code || ''}`;
+    row.append(title, details);
+    dom.historyList.appendChild(row);
   });
 }
 
 function openAdmin() {
+  editorDraft = clonePrizes(prizes);
   refreshAdminControls();
+  populatePrizeSelector();
   renderPrizeEditor();
-  adminPanel.classList.remove('hidden');
-  lockedCard.classList.add('hidden');
-  statusText.textContent = 'Admin mode unlocked. Cupid is now under questionable management.';
+  dom.adminPanel.classList.remove('hidden');
+  dom.adminPanel.scrollTop = 0;
+  dom.statusText.textContent = 'Admin mode unlocked. Cupid is now under questionable management.';
+  setTimeout(() => dom.closeAdmin.focus(), 50);
 }
 
-secretHeart.addEventListener('click', openPasswordDialog);
-titleTap.addEventListener('click', () => {
-  titleTapCount += 1;
-  clearTimeout(titleTap._timer);
-  titleTap._timer = setTimeout(() => titleTapCount = 0, 1500);
-  if (titleTapCount >= 5) {
-    titleTapCount = 0;
-    openPasswordDialog();
-  }
-});
+function closeAdmin() {
+  dom.adminPanel.classList.add('hidden');
+  setLockedView();
+}
 
-passwordForm.addEventListener('submit', (event) => {
-  event.preventDefault();
-  if (passwordInput.value === PASSWORD) {
-    if (typeof passwordDialog.close === 'function') passwordDialog.close();
-    else passwordDialog.removeAttribute('open');
+function resetMonthlySpin() {
+  const next = { ...state };
+  delete next.lastSpinDate;
+  delete next.lastSpinMonth;
+  delete next.lastPrize;
+  state = next;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  dom.lockedCard.classList.add('hidden');
+  dom.adminStatus.textContent = 'Monthly spin reset. Romance bureaucracy cleared.';
+  dom.statusText.textContent = 'Spin reset. Cupid is ready for another launch.';
+}
+
+function registerEvents() {
+  dom.littleMan.addEventListener('pointerdown', startCupidDrag);
+  dom.littleMan.addEventListener('pointermove', moveCupid);
+  dom.littleMan.addEventListener('pointerup', releaseCupid);
+  dom.littleMan.addEventListener('pointercancel', cancelCupid);
+  dom.littleMan.addEventListener('keydown', event => {
+    if (event.key === 'Enter' || event.key === ' ') spinWheel();
+  });
+
+  dom.closeTicket.addEventListener('click', claimTicket);
+  dom.saveTicketPhoto.addEventListener('click', saveTicketAsPhoto);
+  dom.secretHeart.addEventListener('click', openPasswordDialog);
+  dom.titleTap.addEventListener('click', () => {
+    titleTapCount += 1;
+    clearTimeout(dom.titleTap._timer);
+    dom.titleTap._timer = setTimeout(() => { titleTapCount = 0; }, 1600);
+    if (titleTapCount >= 5) {
+      titleTapCount = 0;
+      openPasswordDialog();
+    }
+  });
+
+  dom.passwordForm.addEventListener('submit', event => {
+    event.preventDefault();
+    if (dom.passwordInput.value !== PASSWORD) {
+      dom.passwordError.textContent = 'Nope. Cupid says the password is wrong.';
+      wobbleCupid();
+      return;
+    }
+    closePasswordDialog();
     openAdmin();
-    requestAnimationFrame(() => adminPanel.scrollIntoView({ behavior: 'smooth', block: 'start' }));
-  } else {
-    passwordError.textContent = 'Nope. Cupid says the password is wrong.';
-    wobbleMan();
+  });
+  dom.cancelPassword.addEventListener('click', closePasswordDialog);
+  dom.closeAdmin.addEventListener('click', closeAdmin);
+
+  dom.unlimitedToggle.addEventListener('change', () => {
+    saveState({ adminSettings: { unlimited: dom.unlimitedToggle.checked } });
+    refreshAdminControls();
+    setLockedView();
+  });
+  dom.monthlyLockToggle.addEventListener('change', () => {
+    saveState({ adminSettings: { monthlyLock: dom.monthlyLockToggle.checked } });
+    refreshAdminControls();
+    setLockedView();
+  });
+  dom.forcePrizeSelect.addEventListener('change', () => {
+    forcedPrizeIndex = dom.forcePrizeSelect.value === '' ? null : Number(dom.forcePrizeSelect.value);
+    dom.adminStatus.textContent = forcedPrizeIndex === null
+      ? 'Next spin will be random.'
+      : `Next spin forced to: ${prizes[forcedPrizeIndex].name}`;
+  });
+  dom.testSpin.addEventListener('click', () => {
+    if (dom.forcePrizeSelect.value !== '') forcedPrizeIndex = Number(dom.forcePrizeSelect.value);
+    closeAdmin();
+    spinWheel(true);
+  });
+  dom.resetSpin.addEventListener('click', resetMonthlySpin);
+  dom.forceAvailable.addEventListener('click', resetMonthlySpin);
+  dom.previewTicket.addEventListener('click', () => {
+    const index = dom.forcePrizeSelect.value === '' ? 0 : Number(dom.forcePrizeSelect.value);
+    closeAdmin();
+    revealPrize(index);
+  });
+  dom.viewHistory.addEventListener('click', () => {
+    renderHistory();
+    dom.historyPanel.classList.toggle('hidden');
+  });
+  dom.addPrize.addEventListener('click', () => {
+    editorDraft.push({ name: 'New Prize', line: 'Add the funny little terms and conditions here.' });
+    renderPrizeEditor();
+    dom.prizeEditorList.lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  });
+  dom.savePrizes.addEventListener('click', savePrizeChanges);
+  dom.restorePrizes.addEventListener('click', () => {
+    if (!window.confirm('Restore the original prize list? Your custom edits will be replaced.')) return;
+    prizes = clonePrizes(DEFAULT_PRIZES);
+    editorDraft = clonePrizes(DEFAULT_PRIZES);
+    saveState({ customPrizes: null });
+    forcedPrizeIndex = null;
+    populatePrizeSelector();
+    renderPrizeEditor();
+    drawWheel();
+    dom.adminStatus.textContent = 'Original prize list restored.';
+  });
+  dom.clearHistory.addEventListener('click', () => {
+    if (!window.confirm('Clear all claimed ticket history?')) return;
+    saveState({ ticketHistory: [] });
+    renderHistory();
+    dom.adminStatus.textContent = 'Ticket history cleared.';
+  });
+  dom.resetAll.addEventListener('click', () => {
+    if (!window.confirm('Reset every prize, ticket and admin setting on this device?')) return;
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(LEGACY_STORAGE_KEY);
+    state = { ...DEFAULT_STATE, adminSettings: { ...DEFAULT_STATE.adminSettings }, ticketHistory: [] };
+    prizes = clonePrizes(DEFAULT_PRIZES);
+    editorDraft = clonePrizes(prizes);
+    forcedPrizeIndex = null;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    populatePrizeSelector();
+    renderPrizeEditor();
+    refreshAdminControls();
+    dom.historyPanel.classList.add('hidden');
+    dom.ticket.classList.add('hidden');
+    dom.lockedCard.classList.add('hidden');
+    drawWheel();
+    setLockedView();
+    dom.adminStatus.textContent = 'All local app data reset. Testing mode is ready.';
+  });
+}
+
+function scheduleWheelDraws() {
+  drawWheel();
+  requestAnimationFrame(drawWheel);
+  setTimeout(drawWheel, 80);
+  setTimeout(drawWheel, 240);
+  window.addEventListener('load', drawWheel, { once: true });
+  window.addEventListener('resize', () => requestAnimationFrame(drawWheel));
+  window.addEventListener('orientationchange', () => setTimeout(drawWheel, 180));
+  if (document.fonts?.ready) document.fonts.ready.then(drawWheel).catch(() => {});
+  if ('ResizeObserver' in window) {
+    const observer = new ResizeObserver(() => requestAnimationFrame(drawWheel));
+    observer.observe(dom.canvas.parentElement);
   }
-});
+}
 
-
-cancelPassword.addEventListener('click', () => {
-  if (typeof passwordDialog.close === 'function') passwordDialog.close();
-  else passwordDialog.removeAttribute('open');
-});
-
-closeAdmin.addEventListener('click', () => adminPanel.classList.add('hidden'));
-
-unlimitedToggle.addEventListener('change', () => {
-  testMode = unlimitedToggle.checked;
-  saveAdminSettings();
-  refreshAdminControls();
-  setLockedView();
-});
-
-monthlyLockToggle.addEventListener('change', () => {
-  monthlyLockEnabled = monthlyLockToggle.checked;
-  saveAdminSettings();
-  refreshAdminControls();
-  setLockedView();
-});
-
-forcePrizeSelect.addEventListener('change', () => {
-  forcedPrizeIndex = forcePrizeSelect.value === '' ? null : Number(forcePrizeSelect.value);
-  adminStatus.textContent = forcedPrizeIndex === null ? 'Next spin will be random.' : `Next spin forced to: ${prizes[forcedPrizeIndex].name}`;
-});
-
-document.getElementById('testSpin').addEventListener('click', () => {
-  adminPanel.classList.add('hidden');
-  if (forcePrizeSelect.value !== '') forcedPrizeIndex = Number(forcePrizeSelect.value);
-  spinWheel(true);
-});
-
-document.getElementById('resetSpin').addEventListener('click', () => {
-  const state = loadState();
-  delete state.lastSpinDate;
-  delete state.lastSpinMonth;
-  delete state.lastPrize;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  lockedCard.classList.add('hidden');
-  adminStatus.textContent = 'Monthly spin reset. Romance bureaucracy cleared.';
-  statusText.textContent = 'Spin reset. Cupid is ready for another launch.';
-});
-
-previewTicket.addEventListener('click', () => {
-  const index = forcePrizeSelect.value === '' ? 0 : Number(forcePrizeSelect.value);
-  adminPanel.classList.add('hidden');
-  revealPrize(index);
-});
-
-viewHistory.addEventListener('click', () => {
-  renderHistory();
-  historyPanel.classList.toggle('hidden');
-});
-
-addPrize.addEventListener('click', () => {
-  const current = readPrizeEditor();
-  prizes = [...current, { name: 'New Prize', line: 'Add the funny little terms and conditions here.' }];
-  renderPrizeEditor();
-  prizeEditorList.lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-});
-
-savePrizes.addEventListener('click', () => applyPrizeChanges(readPrizeEditor()));
-
-restorePrizes.addEventListener('click', () => {
-  if (!confirm('Restore the original prize list? Your custom edits will be replaced.')) return;
-  prizes = DEFAULT_PRIZES.map(prize => ({ ...prize }));
-  const state = loadState();
-  delete state.customPrizes;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  forcedPrizeIndex = null;
-  populatePrizeSelector();
-  renderPrizeEditor();
-  drawWheel();
-  adminStatus.textContent = 'Original prize list restored.';
-});
-
-document.getElementById('forceAvailable').addEventListener('click', () => {
-  const state = loadState();
-  delete state.lastSpinDate;
-  delete state.lastSpinMonth;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  lockedCard.classList.add('hidden');
-  adminStatus.textContent = 'Spin is available again.';
-});
-
-clearHistory.addEventListener('click', () => {
-  if (!confirm('Clear all claimed ticket history?')) return;
-  saveState({ ticketHistory: [] });
-  renderHistory();
-  adminStatus.textContent = 'Ticket history cleared.';
-});
-
-resetAll.addEventListener('click', () => {
-  if (!confirm('Reset every prize, ticket and admin setting on this device?')) return;
-  localStorage.removeItem(STORAGE_KEY);
-  testMode = false;
-  monthlyLockEnabled = false;
-  forcedPrizeIndex = null;
-  prizes = DEFAULT_PRIZES.map(prize => ({ ...prize }));
-  populatePrizeSelector();
-  renderPrizeEditor();
-  drawWheel();
-  refreshAdminControls();
-  historyPanel.classList.add('hidden');
-  adminStatus.textContent = 'All local app data reset.';
-  lockedCard.classList.add('hidden');
-  ticket.classList.add('hidden');
-});
-
-populatePrizeSelector();
-refreshAdminControls();
-
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
+function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+  window.addEventListener('load', async () => {
+    try {
+      const registration = await navigator.serviceWorker.register('./sw.js');
+      registration.update();
+    } catch {
+      // The app still works without offline caching.
+    }
+  });
 }
 
 function initialiseApp() {
-  // Draw immediately, then again after layout and fonts settle on mobile browsers.
-  drawWheel();
+  registerEvents();
+  populatePrizeSelector();
+  refreshAdminControls();
+  renderPrizeEditor();
+  updateModeCopy();
+  scheduleWheelDraws();
   setLockedView();
-  requestAnimationFrame(drawWheel);
-  window.setTimeout(drawWheel, 120);
+  registerServiceWorker();
 }
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initialiseApp, { once: true });
-} else {
-  initialiseApp();
-}
-
-window.addEventListener('load', drawWheel, { once: true });
-window.addEventListener('resize', () => requestAnimationFrame(drawWheel));
+initialiseApp();
